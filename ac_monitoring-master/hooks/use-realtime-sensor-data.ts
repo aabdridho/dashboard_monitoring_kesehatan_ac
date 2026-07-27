@@ -156,7 +156,7 @@ export function useRealtimeSensorData(): UseRealtimeSensorDataResult {
         supply_temp: pickValue(acData, ["Temperature", "Temp", "temperature", "supply_temp"]),
         indoor_temp: pickValue(indoorData, ["Temperature", "TemperatureC", "temperature", "indoor_temp"]),
         outdoor_temp: pickValue(outdoorData, ["Temperature", "TemperatureC", "temperature", "outdoor_temp"]),
-        power: pickValue(kwhData, ["Daya", "Power", "power", "W"]),
+        power: pickValue(kwhData, ["Daya", "Power", "power", "W", "AvgDaya"]),
       });
 
       // Ensure derivedStatus is a valid DeviceStatus

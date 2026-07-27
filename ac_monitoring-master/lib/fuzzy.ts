@@ -248,12 +248,12 @@ export function deriveACStatusFromSensors(reading: {
   outdoor_temp?: number;
   power?: number;
 }): "healthy" | "warning" {
-  const rawSetpoint = reading.setpoint ?? 21;
+  const rawSetpoint = reading.setpoint && reading.setpoint > 0 ? reading.setpoint : 22;
   const setpoint = Math.max(16, Math.min(30, rawSetpoint));
-  const rawSupplyTemp = reading.supply_temp ?? setpoint;
+  const rawSupplyTemp = reading.supply_temp && reading.supply_temp > 0 ? reading.supply_temp : setpoint;
   const supplyTemp = Math.max(16, Math.min(30, rawSupplyTemp));
-  const indoorTemp = reading.indoor_temp ?? 24;
-  const outdoorTemp = reading.outdoor_temp ?? indoorTemp + 2;
+  const indoorTemp = reading.indoor_temp && reading.indoor_temp > 0 ? reading.indoor_temp : 24;
+  const outdoorTemp = reading.outdoor_temp && reading.outdoor_temp > 0 ? reading.outdoor_temp : indoorTemp + 2;
   const power = reading.power ?? 0;
 
   // Hitung input variabel
