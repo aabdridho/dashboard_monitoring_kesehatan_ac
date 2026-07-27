@@ -141,10 +141,8 @@ function LiveSnapshot() {
 function WindowedCharts() {
   const [windowMs, setWindowMs] = React.useState<WindowMs>(300_000);
 
-  // Fetch a large chunk of history from Firebase.
-  // For "All" we want everything; for shorter windows we still fetch
-  // plenty so window switching is instant.
-  const fetchLimit = windowMs === "all" ? 50000 : 5000;
+  // Fetch up to 10,000 historical readings for smooth performance
+  const fetchLimit = windowMs === "all" ? 10000 : 3000;
   const { history, loading } = useFirebaseHistory(fetchLimit);
 
   // Current time reference — updated every 5 seconds so the cutoff
@@ -266,7 +264,7 @@ function WindowedCharts() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Individual chart card                                              */
+/*  Individual chart card with fast downsampling                       */
 /* ------------------------------------------------------------------ */
 
 function ChartCard({
@@ -288,10 +286,10 @@ function ChartCard({
   data: Array<{ t: number; value: number }>;
   className?: string;
 }) {
-  const chartData = React.useMemo(
-    () => data.map((p) => ({ t: p.t, [keyName]: p.value })),
-    [data, keyName],
-  );
+  const chartData = React.useMemo(() => {
+    const sampled = downsampleSeries(data, 300);
+    return sampled.map((p) => ({ t: p.t, [keyName]: p.value }));
+  }, [data, keyName]);
 
   return (
     <motion.div
@@ -369,4 +367,24 @@ function projectTail(arr: ReadonlyArray<{ value: number }>, cap: number): number
   if (arr.length === 0) return [];
   const start = Math.max(0, arr.length - cap);
   return arr.slice(start).map((p) => p.value);
+}
+
+/**
+ * Downsample series data to maxPoints (e.g. 300 points max per SVG chart)
+ * so that Recharts renders smoothly at 60 FPS even when viewing "Semua" (All data).
+ */
+function downsampleSeries(
+  data: Array<{ t: number; value: number }>,
+  maxPoints = 300,
+): Array<{ t: number; value: number }> {
+  if (data.length <= maxPoints) return data;
+  const step = Math.ceil(data.length / maxPoints);
+  const sampled: Array<{ t: number; value: number }> = [];
+  for (let i = 0; i < data.length; i += step) {
+    sampled.push(data[i]);
+  }
+  if (data.length > 0 && sampled[sampled.length - 1] !== data[data.length - 1]) {
+    sampled.push(data[data.length - 1]);
+  }
+  return sampled;
 }
