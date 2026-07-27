@@ -151,7 +151,8 @@ export function useWindowedSeries(
 ): SeriesPoint[] {
   return React.useMemo(() => {
     if (windowMs === "all" || series.length === 0) return series;
-    const cutoff = Date.now() - windowMs;
+    const latestTimestamp = series[series.length - 1]?.t ?? 0;
+    const cutoff = latestTimestamp - windowMs;
     const idx = series.findIndex((p) => p.t >= cutoff);
     if (idx <= 0) return series;
     return series.slice(idx);
