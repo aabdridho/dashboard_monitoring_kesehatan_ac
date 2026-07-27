@@ -1,9 +1,9 @@
 /**
- * Logika Fuzzy Mamdani untuk Monitoring Kesehatan AC
+ * Fuzzy Logic Membership Functions & Mamdani Inference Engine
  *
  * Input Variables:
- * - disparitasSuhuOut: Selisih |Setpoint - Suhu Keluaran| dalam °C
- * - deltaSuhuRoom: Tren penurunan suhu ruangan terhadap outdoor
+ * - disparitasSuhuOut: Selisih |Setpoint - Suhu Supply| (°C)
+ * - deltaSuhuRoom: Selisih Suhu Indoor vs Outdoor (°C)
  * - konsumsikWh: Konsumsi energi AC dalam Watt
  *
  * Output Variable:
@@ -11,10 +11,6 @@
  * - Threshold: >= 60 = "healthy", < 60 = "warning"
  */
 
-/**
- * Membership Function: Triangular
- * Menghitung derajat keanggotaan untuk bentuk segitiga
- */
 function triangularMF(x: number, a: number, b: number, c: number): number {
   if (x <= a || x >= c) return 0;
   if (x === b) return 1;
@@ -22,10 +18,6 @@ function triangularMF(x: number, a: number, b: number, c: number): number {
   return (c - x) / (c - b);
 }
 
-/**
- * Membership Function: Trapezoidal
- * Menghitung derajat keanggotaan untuk bentuk trapesium
- */
 function trapezoidalMF(
   x: number,
   a: number,
@@ -50,10 +42,10 @@ function fuzzifyDisparitasSuhu(disparity: number): {
   const dispClamped = Math.max(0, Math.min(8, disparity));
 
   return {
-    // Normal: Mendekati 0-4°C (segitiga: 0, 0, 4)
-    normal: triangularMF(dispClamped, 0, 0, 4),
-    // Tinggi: Selisih besar (trapesium: 3, 4.5, 6, 8)
-    tinggi: trapezoidalMF(dispClamped, 3, 4.5, 6, 8),
+    // Normal: Mendekati 0-4.5°C (trapesium: 0, 0, 4.5, 6)
+    normal: trapezoidalMF(dispClamped, 0, 0, 4.5, 6),
+    // Tinggi: Selisih besar di atas 4.5°C (trapesium: 4.5, 6, 8, 10)
+    tinggi: trapezoidalMF(dispClamped, 4.5, 6, 8, 10),
   };
 }
 
@@ -70,8 +62,8 @@ function fuzzifyDeltaSuhuRoom(delta: number): {
   return {
     // Turun: Suhu indoor turun signifikan (trapesium: -5, -4, -1.5, -0.5)
     turun: trapezoidalMF(deltaClamped, -5, -4, -1.5, -0.5),
-    // TetapNaik: Suhu stagnan atau naik (trapesium: -1, 0.5, 2, 5)
-    tetapNaik: trapezoidalMF(deltaClamped, -1, 0.5, 2, 5),
+    // TetapNaik: Suhu stagnan/ruangan nyaman (trapesium: -1, 0, 3, 5)
+    tetapNaik: trapezoidalMF(deltaClamped, -1, 0, 3, 5),
   };
 }
 
@@ -86,30 +78,21 @@ function fuzzifyKonsumsiKwh(power: number): {
   const powerClamped = Math.max(0, Math.min(3000, power));
 
   return {
-    // Normal: Konsumsi stabil (trapesium: 0, 200, 1200, 1800)
-    normal: trapezoidalMF(powerClamped, 0, 200, 1200, 1800),
-    // TidakNormal: Konsumsi tinggi/overload (trapesium: 1500, 2000, 2500, 3000)
-    tidakNormal: trapezoidalMF(powerClamped, 1500, 2000, 2500, 3000),
+    // Normal: Konsumsi daya normal AC (0W-1800W)
+    normal: trapezoidalMF(powerClamped, 0, 0, 1800, 2200),
+    // TidakNormal: Konsumsi daya overload/sangat tinggi (> 2000W)
+    tidakNormal: trapezoidalMF(powerClamped, 1800, 2200, 2800, 3000),
   };
 }
 
-/**
- * Output Membership Functions untuk Status Score (0-100)
- */
 function outputMembershipHealthy(score: number): number {
-  // Healthy: Triangular (60, 80, 100)
   return triangularMF(score, 60, 80, 100);
 }
 
 function outputMembershipWarning(score: number): number {
-  // Warning: Triangular (0, 20, 60)
   return triangularMF(score, 0, 20, 60);
 }
 
-/**
- * Inferensi Mamdani & Agregasi
- * Mengevaluasi rules dan mengagregasi menggunakan MAX
- */
 interface MamdaniRuleResult {
   healthyStrength: number;
   warningStrength: number;
@@ -121,45 +104,33 @@ function evaluateMamdaniRules(
   powerMF: ReturnType<typeof fuzzifyKonsumsiKwh>
 ): MamdaniRuleResult {
   // RULE 1: IF (disparitas Normal) AND (delta Turun) AND (power Normal) THEN healthy
-  const rule1 =
-    Math.min(disparityMF.normal, deltaMF.turun, powerMF.normal);
+  const rule1 = Math.min(disparityMF.normal, deltaMF.turun, powerMF.normal);
 
   // RULE 2: IF (disparitas Tinggi) AND (delta TetapNaik) AND (power Normal) THEN warning
-  const rule2 =
-    Math.min(disparityMF.tinggi, deltaMF.tetapNaik, powerMF.normal);
+  const rule2 = Math.min(disparityMF.tinggi, deltaMF.tetapNaik, powerMF.normal);
 
   // RULE 3: IF (disparitas Tinggi) AND (delta TetapNaik) AND (power TidakNormal) THEN warning
-  const rule3 =
-    Math.min(disparityMF.tinggi, deltaMF.tetapNaik, powerMF.tidakNormal);
+  const rule3 = Math.min(disparityMF.tinggi, deltaMF.tetapNaik, powerMF.tidakNormal);
 
   // RULE 4: IF (disparitas Normal) AND (delta TetapNaik) AND (power Normal) THEN healthy
-  const rule4 = 
-    Math.min(disparityMF.normal, deltaMF.tetapNaik, powerMF.normal);
-    
-  // RULE 5: IF (disparitas Normal) AND (delta Turun) AND (power TidakNormal) THEN warning
-  const rule5 = 
-    Math.min(disparityMF.normal, deltaMF.turun, powerMF.tidakNormal);
-    
-  // RULE 6: IF (disparitas Normal) AND (delta TetapNaik) AND (power TidakNormal) THEN warning
-  const rule6 = 
-    Math.min(disparityMF.normal, deltaMF.tetapNaik, powerMF.tidakNormal);
+  const rule4 = Math.min(disparityMF.normal, deltaMF.tetapNaik, powerMF.normal);
 
-  // Agregasi: MAX untuk setiap output
+  // RULE 5: IF (disparitas Normal) AND (delta Turun) AND (power TidakNormal) THEN warning
+  const rule5 = Math.min(disparityMF.normal, deltaMF.turun, powerMF.tidakNormal);
+
+  // RULE 6: IF (disparitas Normal) AND (delta TetapNaik) AND (power TidakNormal) THEN warning
+  const rule6 = Math.min(disparityMF.normal, deltaMF.tetapNaik, powerMF.tidakNormal);
+
   return {
     healthyStrength: Math.max(rule1, rule4),
     warningStrength: Math.max(rule2, rule3, rule5, rule6),
   };
 }
 
-/**
- * Defuzzifikasi Centroid (Center of Gravity)
- * Mengkonversi fuzzy output menjadi crisp value (0-100)
- */
 function defuzzifyCentroid(
   healthyStrength: number,
   warningStrength: number
 ): number {
-  // Sampling resolution untuk Centroid
   const samples = 100;
   let numerator = 0;
   let denominator = 0;
@@ -178,69 +149,27 @@ function defuzzifyCentroid(
   return denominator === 0 ? 50 : numerator / denominator;
 }
 
-/**
- * Fungsi Utama: Evaluasi Status Kesehatan AC
- *
- * @param disparitasSuhuOut - Selisih |Setpoint - Suhu Keluaran| dalam °C
- * @param deltaSuhuRoom - Tren penurunan suhu ruangan vs outdoor dalam °C
- * @param konsumsikWh - Konsumsi energi dalam Watt
- * @returns { status: "healthy" | "warning", score: number }
- */
 export function evaluateACHealth(
   disparitasSuhuOut: number,
   deltaSuhuRoom: number,
   konsumsikWh: number
 ): { status: "healthy" | "warning"; score: number } {
-  // Fuzzifikasi input
   const disparityMF = fuzzifyDisparitasSuhu(disparitasSuhuOut);
   const deltaMF = fuzzifyDeltaSuhuRoom(deltaSuhuRoom);
   const powerMF = fuzzifyKonsumsiKwh(konsumsikWh);
 
-  // Debug logging (optional)
-  console.log(
-    "[Fuzzy Debug] Disparitas Suhu:",
-    disparitasSuhuOut,
-    "=>",
-    disparityMF
-  );
-  console.log(
-    "[Fuzzy Debug] Delta Suhu Room:",
-    deltaSuhuRoom,
-    "=>",
-    deltaMF
-  );
-  console.log(
-    "[Fuzzy Debug] Konsumsi kWh:",
-    konsumsikWh,
-    "=>",
-    powerMF
-  );
-
-  // Inferensi Mamdani
   const ruleResult = evaluateMamdaniRules(disparityMF, deltaMF, powerMF);
-  console.log(
-    "[Fuzzy Debug] Rule Results - Healthy:",
-    ruleResult.healthyStrength,
-    "Warning:",
-    ruleResult.warningStrength
-  );
 
-  // Defuzzifikasi Centroid
   const score = defuzzifyCentroid(
     ruleResult.healthyStrength,
     ruleResult.warningStrength
   );
-  console.log("[Fuzzy Debug] Final Score (Centroid):", score);
 
-  // Konversi ke status
   const status = score >= 60 ? "healthy" : "warning";
 
   return { status, score };
 }
 
-/**
- * Adapter untuk digunakan dengan SensorReading dari aplikasi
- */
 export function deriveACStatusFromSensors(reading: {
   setpoint?: number;
   supply_temp?: number;
@@ -256,13 +185,10 @@ export function deriveACStatusFromSensors(reading: {
   const outdoorTemp = reading.outdoor_temp && reading.outdoor_temp > 0 ? reading.outdoor_temp : indoorTemp + 2;
   const power = reading.power ?? 0;
 
-  // Hitung input variabel
   const disparitasSuhuOut = Math.abs(supplyTemp - setpoint);
   const deltaSuhuRoom = indoorTemp - outdoorTemp;
 
-  // Evaluasi menggunakan Fuzzy Logic
   const { status } = evaluateACHealth(disparitasSuhuOut, deltaSuhuRoom, power);
 
   return status;
 }
-
