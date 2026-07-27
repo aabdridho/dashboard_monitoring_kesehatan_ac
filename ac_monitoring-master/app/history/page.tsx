@@ -15,7 +15,7 @@ import { useFirebaseHistory } from "@/hooks/use-firebase-history";
 import type { DeviceStatus, SensorReading } from "@/types/sensor";
 
 const PAGE_SIZE = 30;
-const MAX_HISTORY_ENTRIES = 1000;
+const MAX_HISTORY_ENTRIES = 10000;
 
 const HEALTH_SCORE_BY_STATUS: Record<DeviceStatus | "offline", number> = {
   healthy: 95,
@@ -69,7 +69,8 @@ export default function HistoryPage() {
   }, [history, page]);
 
   const handleExport = () => {
-    const rows = pageData.map((entry) => ({
+    const allEntries = [...history].reverse();
+    const rows = allEntries.map((entry) => ({
       timestamp: formatTimestamp(entry.timestamp),
       indoor_temp: `${entry.indoor_temp.toFixed(1)}°C`,
       outdoor_temp: `${entry.outdoor_temp.toFixed(1)}°C`,
@@ -109,7 +110,7 @@ export default function HistoryPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `riwayat-halaman-${page}.csv`;
+    anchor.download = `riwayat-lengkap-ac-monitoring.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);

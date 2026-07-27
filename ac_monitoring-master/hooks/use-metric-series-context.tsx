@@ -150,12 +150,16 @@ export function useWindowedSeries(
   windowMs: number | "all",
 ): SeriesPoint[] {
   return React.useMemo(() => {
-    if (windowMs === "all" || series.length === 0) return series;
-    const latestTimestamp = series[series.length - 1]?.t ?? 0;
-    const cutoff = latestTimestamp - windowMs;
-    const idx = series.findIndex((p) => p.t >= cutoff);
-    if (idx <= 0) return series;
-    return series.slice(idx);
+    if (!series || series.length === 0) return [];
+    const valid = series.filter((p) => typeof p.value === "number" && !isNaN(p.value) && p.value > 0);
+    if (valid.length === 0) return [];
+    if (windowMs === "all") return valid;
+
+    const maxT = valid[valid.length - 1]?.t ?? 0;
+    const cutoff = maxT - windowMs;
+    const idx = valid.findIndex((p) => p.t >= cutoff);
+    if (idx <= 0) return valid;
+    return valid.slice(idx);
   }, [series, windowMs]);
 }
 
