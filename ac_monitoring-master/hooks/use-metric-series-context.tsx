@@ -1,29 +1,8 @@
 "use client";
 
 import * as React from "react";
-
+import { useFirebaseHistory } from "@/hooks/use-firebase-history";
 import type { SensorReading } from "@/types/sensor";
-
-/**
- * `MetricSeriesContext`
- *
- * Stores a bounded, oldest-first series per metric, sourced from the
- * realtime hook. Why a separate context (not just the hook)?
- *  - One rolling buffer per metric is shared by every chart on the
- *    Monitoring page so swapping window selectors doesn't refetch.
- *  - Decouples chart-specific serialization (`{ t, value }` shape) from
- *    the raw sensor shape, keeping the realtime hook pure.
- *
- * Stability:
- *  - `push` and `reset` are exposed as refs (`pushRef.current(…)`) so
- *    consumers can read them inside effects WITHOUT putting the function
- *    itself in the dep array. Without this, every state update recreates
- *    `push`, the bridge's effect re-fires, and you get an infinite
- *    render loop.
- *  - The `push`/`reset` callbacks themselves are wrapped in
- *    `useCallback` with an empty dep array so they're also stable when
- *    accessed via the ref.
- */
 
 export interface SeriesPoint {
   t: number; // epoch ms
@@ -59,9 +38,7 @@ const EMPTY: MetricSeriesState = {
 const DEFAULT_CAP = 10000;
 
 interface MetricSeriesContextValue extends MetricSeriesState {
-  /** Always-stable handle to the push function. Call as `pushRef.current(r)`. */
   pushRef: React.MutableRefObject<(reading: SensorReading) => void>;
-  /** Always-stable handle to the reset function. */
   resetRef: React.MutableRefObject<() => void>;
 }
 
@@ -78,67 +55,47 @@ export function MetricSeriesProvider({
 }) {
   const [series, setSeries] = React.useState<MetricSeriesState>(EMPTY);
 
-  // Latest cap, readable from inside the stable `push` callback.
   const capRef = React.useRef(cap);
   React.useEffect(() => {
     capRef.current = cap;
   }, [cap]);
 
+  const { history: initialHistory, loading: historyLoading } = useFirebaseHistory(2000);
   const initialized = React.useRef(false);
-  
-  React.useEffect(() => {
-    if (initialized.current) return;
-    
-    import("@/services/firebase").then((mod) => {
-      if (!mod.isFirebaseConfigured()) return;
-      const { getFirebaseDatabase, FIREBASE_PATHS } = mod;
-      import("firebase/database").then((dbMod) => {
-        const { get, query, ref, orderByKey, limitToLast } = dbMod;
-        const db = getFirebaseDatabase();
-        const historyRef = ref(db, FIREBASE_PATHS.history);
-        
-        get(query(historyRef, orderByKey(), limitToLast(5000))).then((snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.val();
-            const arr = Object.values(data) as any[];
-            const typedArr: SensorReading[] = arr.map((item) => ({ ...item, timestamp: item.timestamp ?? Date.now() }));
-            typedArr.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
-            
-            setSeries((prev) => {
-              const next: MetricSeriesState = { ...EMPTY };
-              typedArr.forEach(r => {
-                const t = r.timestamp;
-                if(!t) return;
-                if(r.indoor_temp !== undefined) next.indoor_temp.push({ t, value: r.indoor_temp });
-                if(r.outdoor_temp !== undefined) next.outdoor_temp.push({ t, value: r.outdoor_temp });
-                if(r.supply_temp !== undefined) next.supply_temp.push({ t, value: r.supply_temp });
-                if(r.voltage !== undefined) next.voltage.push({ t, value: r.voltage });
-                if(r.current !== undefined) next.current.push({ t, value: r.current });
-                if(r.power !== undefined) next.power.push({ t, value: r.power });
-                if(r.energy !== undefined) next.energy.push({ t, value: r.energy });
-              });
-              
-              return {
-                indoor_temp: mergeAndSort(next.indoor_temp, prev.indoor_temp),
-                outdoor_temp: mergeAndSort(next.outdoor_temp, prev.outdoor_temp),
-                supply_temp: mergeAndSort(next.supply_temp, prev.supply_temp),
-                voltage: mergeAndSort(next.voltage, prev.voltage),
-                current: mergeAndSort(next.current, prev.current),
-                power: mergeAndSort(next.power, prev.power),
-                energy: mergeAndSort(next.energy, prev.energy),
-                setpoint: prev.setpoint,
-                humidity: prev.humidity,
-                power_factor: prev.power_factor
-              };
-            });
-            initialized.current = true;
-          }
-        }).catch(() => {});
-      });
-    });
-  }, []);
 
-  // Stable callback — empty deps, reads cap through capRef.
+  React.useEffect(() => {
+    if (!historyLoading && !initialized.current && initialHistory.length > 0) {
+      initialized.current = true;
+      setSeries((prev) => {
+        const next: MetricSeriesState = { ...EMPTY };
+        initialHistory.forEach((r) => {
+          const t = r.timestamp;
+          if (!t) return;
+          if (r.indoor_temp !== undefined) next.indoor_temp.push({ t, value: r.indoor_temp });
+          if (r.outdoor_temp !== undefined) next.outdoor_temp.push({ t, value: r.outdoor_temp });
+          if (r.supply_temp !== undefined) next.supply_temp.push({ t, value: r.supply_temp });
+          if (r.voltage !== undefined) next.voltage.push({ t, value: r.voltage });
+          if (r.current !== undefined) next.current.push({ t, value: r.current });
+          if (r.power !== undefined) next.power.push({ t, value: r.power });
+          if (r.energy !== undefined) next.energy.push({ t, value: r.energy });
+        });
+
+        return {
+          indoor_temp: mergeAndSort(next.indoor_temp, prev.indoor_temp),
+          outdoor_temp: mergeAndSort(next.outdoor_temp, prev.outdoor_temp),
+          supply_temp: mergeAndSort(next.supply_temp, prev.supply_temp),
+          voltage: mergeAndSort(next.voltage, prev.voltage),
+          current: mergeAndSort(next.current, prev.current),
+          power: mergeAndSort(next.power, prev.power),
+          energy: mergeAndSort(next.energy, prev.energy),
+          setpoint: prev.setpoint,
+          humidity: prev.humidity,
+          power_factor: prev.power_factor,
+        };
+      });
+    }
+  }, [historyLoading, initialHistory]);
+
   const push = React.useCallback((reading: SensorReading) => {
     const limit = capRef.current;
     setSeries((prev) => ({
@@ -159,9 +116,6 @@ export function MetricSeriesProvider({
     setSeries(EMPTY);
   }, []);
 
-  // Wrap stable callbacks in refs so the context VALUE identity doesn't
-  // change when `series` changes. The `value` of `pushRef.current` is
-  // always the same function reference; only `series` updates.
   const pushRef = React.useRef(push);
   const resetRef = React.useRef(reset);
   React.useEffect(() => {
@@ -169,8 +123,6 @@ export function MetricSeriesProvider({
     resetRef.current = reset;
   }, [push, reset]);
 
-  // `value` re-creates only when `series` changes — that's the only thing
-  // consumers need to re-render on.
   const value = React.useMemo<MetricSeriesContextValue>(
     () => ({ ...series, pushRef, resetRef }),
     [series, pushRef, resetRef],
@@ -193,10 +145,6 @@ export function useMetricSeries(): MetricSeriesContextValue {
   return ctx;
 }
 
-/**
- * `useWindowedSeries` — convenience selector that returns the subset of a
- * series whose timestamps fall inside the requested window.
- */
 export function useWindowedSeries(
   series: SeriesPoint[],
   windowMs: number | "all",
@@ -218,7 +166,6 @@ function append(
 ): SeriesPoint[] {
   if (typeof value !== "number" || Number.isNaN(value)) return arr;
 
-  // Prevent duplicate timestamps which can cause chart key errors.
   if (arr.length > 0 && arr[arr.length - 1].t === t) {
     return arr;
   }
@@ -230,8 +177,8 @@ function append(
 
 function mergeAndSort(arr1: SeriesPoint[], arr2: SeriesPoint[]): SeriesPoint[] {
   const map = new Map<number, number>();
-  arr1.forEach(p => map.set(p.t, p.value));
-  arr2.forEach(p => map.set(p.t, p.value));
+  arr1.forEach((p) => map.set(p.t, p.value));
+  arr2.forEach((p) => map.set(p.t, p.value));
   return Array.from(map.entries())
     .map(([t, value]) => ({ t, value }))
     .sort((a, b) => a.t - b.t);
