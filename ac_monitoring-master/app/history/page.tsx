@@ -45,8 +45,8 @@ function formatTimestamp(timestamp: number) {
 
 function formatStatusLabel(status: DeviceStatus | undefined) {
   if (!status) return "Offline";
-  if (status === "healthy") return "Healthy";
-  if (status === "warning") return "Warning";
+  if (status === "healthy") return "Sehat";
+  if (status === "warning") return "Peringatan";
   if (status === "critical") return "Kritis";
   return "Offline";
 }

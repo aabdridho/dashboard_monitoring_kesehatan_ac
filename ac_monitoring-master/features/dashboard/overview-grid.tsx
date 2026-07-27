@@ -38,13 +38,13 @@ const STATUS_TONE: Record<
   healthy: {
     ring: "ring-[var(--ring-healthy)]",
     dot: "bg-success",
-    label: "Healthy",
+    label: "Sehat",
     badgeVariant: "success",
   },
   warning: {
     ring: "ring-[var(--ring-warning)]",
     dot: "bg-warning",
-    label: "Warning",
+    label: "Peringatan",
     badgeVariant: "warning",
   },
   critical: {

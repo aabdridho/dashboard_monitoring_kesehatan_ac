@@ -84,7 +84,7 @@ export function AreaChart({
           className,
         )}
       >
-        Waiting for data…
+        Menunggu data…
       </div>
     );
   }

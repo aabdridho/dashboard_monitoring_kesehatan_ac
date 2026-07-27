@@ -70,28 +70,28 @@ export default function AnalyticsPage() {
 
   const cards = [
     {
-      title: "Avg. Indoor Temp",
+      title: "Rata-rata Suhu Indoor",
       value: `${avgIndoorTemp}°C`,
       caption: "Rata-rata perhari",
       icon: Flame,
       color: "text-amber-500",
     },
     {
-      title: "Avg. Outdoor Temp",
+      title: "Rata-rata Suhu Outdoor",
       value: `${avgOutdoorTemp}°C`,
       caption: "Rata-rata perhari",
       icon: Flame,
       color: "text-orange-500",
     },
     {
-      title: "Avg. Power",
+      title: "Rata-rata Daya Listrik",
       value: `${avgPower} W`,
       caption: "Rata-rata perhari",
       icon: Power,
       color: "text-blue-500",
     },
     {
-      title: "Avg. Energy",
+      title: "Rata-rata Konsumsi Energi",
       value: `${avgEnergy} kWh`,
       caption: "Rata-rata perhari",
       icon: Zap,
@@ -102,9 +102,9 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Analitik</h1>
         <p className="text-muted-foreground">
-          Explore trends and statistics of your AC usage.
+          Telusuri tren dan statistik penggunaan AC Anda.
         </p>
       </div>
 
@@ -146,7 +146,7 @@ export default function AnalyticsPage() {
           <Card className="relative overflow-hidden ring-1 ring-inset ring-border/60 transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Health Status
+                Status Kesehatan AC
               </CardTitle>
               <span className="rounded-md bg-muted/60 p-1.5 text-muted-foreground">
                 <HeartPulse className="h-4 w-4 text-emerald-500" />
@@ -155,7 +155,7 @@ export default function AnalyticsPage() {
             <CardContent className="space-y-2.5">
               <div>
                 <div className="flex justify-between text-xs font-medium">
-                  <span className="text-emerald-500">Healthy</span>
+                  <span className="text-emerald-500">Sehat</span>
                   <span>{healthStatus.healthy}%</span>
                 </div>
                 <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -168,7 +168,7 @@ export default function AnalyticsPage() {
 
               <div>
                 <div className="flex justify-between text-xs font-medium">
-                  <span className="text-amber-500">Warning</span>
+                  <span className="text-amber-500">Peringatan</span>
                   <span>{healthStatus.warning}%</span>
                 </div>
                 <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -182,7 +182,7 @@ export default function AnalyticsPage() {
               {healthStatus.critical > 0 && (
                 <div>
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-rose-500">Critical</span>
+                    <span className="text-rose-500">Kritis</span>
                     <span>{healthStatus.critical}%</span>
                   </div>
                   <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
