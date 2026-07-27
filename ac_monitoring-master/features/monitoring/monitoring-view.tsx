@@ -16,11 +16,15 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils/cn";
 import {
   useMetricSeries,
-  useWindowedSeries,
   type SeriesPoint,
 } from "@/hooks/use-metric-series-context";
 import { useRealtimeContext } from "@/hooks/use-realtime-context";
-import type { SensorMetric } from "@/types/sensor";
+import { useFirebaseHistory } from "@/hooks/use-firebase-history";
+import type { SensorMetric, SensorReading } from "@/types/sensor";
+
+/* ------------------------------------------------------------------ */
+/*  Time-window types                                                  */
+/* ------------------------------------------------------------------ */
 
 type WindowMs = 300_000 | 1_800_000 | 3_600_000 | "all";
 
@@ -30,6 +34,10 @@ const WINDOWS: ReadonlyArray<{ label: string; value: WindowMs }> = [
   { label: "1 jam", value: 3_600_000 },
   { label: "Semua", value: "all" },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Main view                                                          */
+/* ------------------------------------------------------------------ */
 
 export function MonitoringView() {
   return (
@@ -48,6 +56,10 @@ export function MonitoringView() {
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Live snapshot cards (top row)                                       */
+/* ------------------------------------------------------------------ */
 
 function LiveSnapshot() {
   const { reading } = useRealtimeContext();
@@ -122,8 +134,61 @@ function LiveSnapshot() {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Windowed charts — pulls data directly from Firebase                */
+/* ------------------------------------------------------------------ */
+
 function WindowedCharts() {
   const [windowMs, setWindowMs] = React.useState<WindowMs>(300_000);
+
+  // Fetch a large chunk of history from Firebase.
+  // For "All" we want everything; for shorter windows we still fetch
+  // plenty so window switching is instant.
+  const fetchLimit = windowMs === "all" ? 50000 : 5000;
+  const { history, loading } = useFirebaseHistory(fetchLimit);
+
+  // Current time reference — updated every 5 seconds so the cutoff
+  // stays fresh without excessive re-renders.
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Filter history by the selected time window relative to NOW.
+  const filteredHistory = React.useMemo(() => {
+    if (!history || history.length === 0) return [];
+    if (windowMs === "all") return history;
+
+    const cutoff = now - windowMs;
+    return history.filter((r) => r.timestamp >= cutoff);
+  }, [history, windowMs, now]);
+
+  // Build per-metric series from the filtered history.
+  const chartSeries = React.useMemo(() => {
+    const result: Record<string, Array<{ t: number; value: number }>> = {
+      indoor_temp: [],
+      outdoor_temp: [],
+      supply_temp: [],
+      voltage: [],
+      current: [],
+      power: [],
+    };
+
+    filteredHistory.forEach((r: SensorReading) => {
+      const t = r.timestamp;
+      if (!t) return;
+
+      if (r.indoor_temp > 0) result.indoor_temp.push({ t, value: r.indoor_temp });
+      if (r.outdoor_temp > 0) result.outdoor_temp.push({ t, value: r.outdoor_temp });
+      if (r.supply_temp > 0) result.supply_temp.push({ t, value: r.supply_temp });
+      if (r.voltage > 0) result.voltage.push({ t, value: r.voltage });
+      if (r.current >= 0) result.current.push({ t, value: r.current });
+      if (r.power >= 0) result.power.push({ t, value: r.power });
+    });
+
+    return result;
+  }, [filteredHistory]);
 
   return (
     <div className="space-y-4">
@@ -131,7 +196,10 @@ function WindowedCharts() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Grafik Real-Time</h2>
           <p className="text-xs text-muted-foreground">
-            Frekuensi pembaruan mengikuti interval pengiriman data sensor.
+            {windowMs === "all"
+              ? "Menampilkan seluruh data dari awal hingga sekarang."
+              : `Menampilkan data ${windowMs === 300_000 ? "5 menit" : windowMs === 1_800_000 ? "30 menit" : "1 jam"} terakhir dari sekarang.`}
+            {loading && " Memuat data..."}
           </p>
         </div>
         <WindowSelector value={windowMs} onChange={setWindowMs} />
@@ -145,7 +213,7 @@ function WindowedCharts() {
           yFormatter={(v) => v.toFixed(1)}
           yDomain={[16, 32]}
           keyName="indoor_temp"
-          windowMs={windowMs}
+          data={chartSeries.indoor_temp}
         />
         <ChartCard
           title="Suhu Outdoor"
@@ -154,16 +222,16 @@ function WindowedCharts() {
           yFormatter={(v) => v.toFixed(1)}
           yDomain={[20, 45]}
           keyName="outdoor_temp"
-          windowMs={windowMs}
+          data={chartSeries.outdoor_temp}
         />
         <ChartCard
           title="Suhu Supply AC"
           description="Suhu hembusan udara AC (°C)"
           tone="accent"
           yFormatter={(v) => v.toFixed(1)}
-          yDomain={[10, 25]}
+          yDomain={[10, 30]}
           keyName="supply_temp"
-          windowMs={windowMs}
+          data={chartSeries.supply_temp}
         />
         <ChartCard
           title="Tegangan Listrik"
@@ -172,7 +240,7 @@ function WindowedCharts() {
           yFormatter={(v) => v.toFixed(0)}
           yDomain={[200, 240]}
           keyName="voltage"
-          windowMs={windowMs}
+          data={chartSeries.voltage}
         />
         <ChartCard
           title="Daya Listrik"
@@ -181,7 +249,7 @@ function WindowedCharts() {
           yFormatter={(v) => v.toFixed(0)}
           yDomain={[0, 1500]}
           keyName="power"
-          windowMs={windowMs}
+          data={chartSeries.power}
         />
         <ChartCard
           title="Arus Listrik"
@@ -190,12 +258,16 @@ function WindowedCharts() {
           yFormatter={(v) => v.toFixed(2)}
           yDomain={[0, 8]}
           keyName="current"
-          windowMs={windowMs}
+          data={chartSeries.current}
         />
       </div>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Individual chart card                                              */
+/* ------------------------------------------------------------------ */
 
 function ChartCard({
   title,
@@ -204,7 +276,7 @@ function ChartCard({
   yFormatter,
   yDomain,
   keyName,
-  windowMs,
+  data,
   className,
 }: {
   title: string;
@@ -212,16 +284,13 @@ function ChartCard({
   tone: "primary" | "accent" | "info";
   yFormatter: (v: number) => string;
   yDomain: [number, number];
-  keyName: SensorMetric;
-  windowMs: WindowMs;
+  keyName: string;
+  data: Array<{ t: number; value: number }>;
   className?: string;
 }) {
-  const series = useMetricSeries();
-  const points = useWindowedSeries(series[keyName], windowMs);
-
-  const data = React.useMemo(
-    () => points.map((p: SeriesPoint) => ({ t: p.t, [keyName]: p.value })),
-    [points, keyName],
+  const chartData = React.useMemo(
+    () => data.map((p) => ({ t: p.t, [keyName]: p.value })),
+    [data, keyName],
   );
 
   return (
@@ -244,7 +313,7 @@ function ChartCard({
         </CardHeader>
         <CardContent>
           <AreaChart
-            data={data}
+            data={chartData}
             seriesKey={keyName}
             tone={tone}
             yTickFormatter={yFormatter}
@@ -256,6 +325,10 @@ function ChartCard({
     </motion.div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Window selector buttons                                            */
+/* ------------------------------------------------------------------ */
 
 function WindowSelector({
   value,
@@ -287,6 +360,10 @@ function WindowSelector({
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 function projectTail(arr: ReadonlyArray<{ value: number }>, cap: number): number[] {
   if (arr.length === 0) return [];
