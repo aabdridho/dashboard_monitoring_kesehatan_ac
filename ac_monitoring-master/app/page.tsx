@@ -8,7 +8,7 @@ export default function HomePage() {
           Dashboard
         </h1>
         <p className="max-w-xl text-sm text-muted-foreground md:text-base">
-          A real-time view of your air conditioner's health and energy use.
+          Pantauan real-time kesehatan sistem AC dan penggunaan energi.
         </p>
       </header>
       <OverviewGrid />

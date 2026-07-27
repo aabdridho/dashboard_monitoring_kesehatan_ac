@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   Activity,
   Bolt,
-  Droplets,
   Flame,
   Gauge as GaugeIcon,
   Power,
@@ -25,20 +24,7 @@ import { useRealtimeContext } from "@/hooks/use-realtime-context";
 import type {
   DeviceStatus,
   SensorMetric,
-  SensorReading,
 } from "@/types/sensor";
-
-/**
- * Seven-card overview grid.
- *
- *   6 metric cards (temperature / humidity / voltage / current /
- *   power / energy) + 2 contextual cards (AC status + room comfort).
- *
- * The trend chip on each card uses the semantic polarity of the metric:
- *   - temperature / humidity / voltage / current / power: spikes are
- *     suspicious, so "up" is tinted warning.
- *   - energy: cumulative, always muted (direction is meaningless).
- */
 
 const STATUS_TONE: Record<
   DeviceStatus,
@@ -64,7 +50,7 @@ const STATUS_TONE: Record<
   critical: {
     ring: "ring-[var(--ring-critical)]",
     dot: "bg-destructive",
-    label: "Critical",
+    label: "Kritis",
     badgeVariant: "destructive",
   },
   offline: {
@@ -84,7 +70,7 @@ export function OverviewGrid() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <MetricCard
-        label="Indoor Temperature"
+        label="Suhu Indoor"
         metric="indoor_temp"
         value={v("indoor_temp")}
         icon={Flame}
@@ -92,7 +78,7 @@ export function OverviewGrid() {
         trendTone="warning"
       />
       <MetricCard
-        label="Outdoor Temperature"
+        label="Suhu Outdoor"
         metric="outdoor_temp"
         value={v("outdoor_temp")}
         icon={Flame}
@@ -100,7 +86,7 @@ export function OverviewGrid() {
         trendTone="warning"
       />
       <MetricCard
-        label="Supply Temperature"
+        label="Suhu Supply AC"
         metric="supply_temp"
         value={v("supply_temp")}
         icon={Flame}
@@ -108,7 +94,7 @@ export function OverviewGrid() {
         trendTone="warning"
       />
       <MetricCard
-        label="Voltage"
+        label="Tegangan Listrik"
         metric="voltage"
         value={v("voltage")}
         icon={Bolt}
@@ -116,7 +102,7 @@ export function OverviewGrid() {
         trendTone="warning"
       />
       <MetricCard
-        label="Current"
+        label="Arus Listrik"
         metric="current"
         value={v("current")}
         icon={Activity}
@@ -124,7 +110,7 @@ export function OverviewGrid() {
         trendTone="warning"
       />
       <MetricCard
-        label="Power"
+        label="Daya Listrik"
         metric="power"
         value={v("power")}
         icon={Power}
@@ -132,7 +118,7 @@ export function OverviewGrid() {
         trendTone="warning"
       />
       <MetricCard
-        label="Energy"
+        label="Konsumsi Energi"
         metric="energy"
         value={v("energy")}
         icon={Zap}
@@ -152,7 +138,7 @@ function AcStatusCard() {
     <Card className={cn("ring-1 ring-inset", tone.ring)}>
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
         <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          AC Status
+          Status AC
         </CardTitle>
         <span className="rounded-md bg-muted/60 p-1.5 text-muted-foreground">
           <GaugeIcon className="h-3.5 w-3.5" />
@@ -168,7 +154,7 @@ function AcStatusCard() {
         <div className="mt-2 flex items-center justify-between">
           <Badge variant={tone.badgeVariant}>{tone.label}</Badge>
           <span className="text-[11px] text-muted-foreground">
-            {reading ? "Updated just now" : "Awaiting data"}
+            {reading ? "Diperbarui baru saja" : "Menunggu data"}
           </span>
         </div>
       </CardContent>

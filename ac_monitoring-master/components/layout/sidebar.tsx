@@ -9,10 +9,6 @@ import { Wind } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { NAV_ITEMS } from "@/lib/nav";
 
-/**
- * Brand block at the top of the sidebar. Kept inline so the sidebar
- * composes one tidy tree (and so future logo swaps stay scoped here).
- */
 function Brand() {
   return (
     <Link
@@ -27,16 +23,12 @@ function Brand() {
         <span className="text-sm font-semibold tracking-tight text-foreground">
           AC Monitoring
         </span>
-        <span className="text-[11px] text-muted-foreground">Health dashboard</span>
+        <span className="text-[11px] text-muted-foreground">Dashboard Monitoring</span>
       </span>
     </Link>
   );
 }
 
-/**
- * One navigation row. The active item gets a soft primary tint and a
- * left-anchored rose dot for a subtle but clear focus state.
- */
 function NavRow({
   href,
   label,
@@ -91,10 +83,6 @@ function NavRow({
   );
 }
 
-/**
- * Persistent (desktop) sidebar. Mobile uses `MobileSidebar` instead,
- * backed by Radix `Sheet`.
- */
 export function Sidebar() {
   const pathname = usePathname();
 
@@ -105,7 +93,7 @@ export function Sidebar() {
         "sticky top-0 h-svh border-r border-border bg-background/80 backdrop-blur",
       )}
     >
-      <div className="border-b border-border">
+      <div className="flex h-[var(--topnav-height)] items-center border-b border-border">
         <Brand />
       </div>
 
@@ -125,8 +113,8 @@ export function Sidebar() {
 
       <div className="border-t border-border p-4">
         <div className="rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">ESP32 — Online</p>
-          <p className="mt-0.5">Last sync just now</p>
+          <p className="font-medium text-foreground">ESP32 — Terhubung</p>
+          <p className="mt-0.5">Sinkronisasi terbaru baru saja</p>
         </div>
       </div>
     </aside>

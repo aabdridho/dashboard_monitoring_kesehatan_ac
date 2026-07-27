@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Activity, Bolt, Droplets, Flame, Power } from "lucide-react";
+import { Activity, Bolt, Flame, Power } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { AreaChart } from "@/components/charts/area-chart";
@@ -22,24 +22,13 @@ import {
 import { useRealtimeContext } from "@/hooks/use-realtime-context";
 import type { SensorMetric } from "@/types/sensor";
 
-/**
- * Monitoring view — five live Recharts area charts (temperature, humidity,
- * voltage, current, power) + a window selector that lets the user pick
- * how far back to look.
- *
- * Energy is intentionally left out — it's cumulative and not useful as a
- * line chart. The dashboard already surfaces it as a single metric card
- * (we re-render the same card stack at the top of this page so the
- * glance-and-go metric is reachable from here too).
- */
-
 type WindowMs = 300_000 | 1_800_000 | 3_600_000 | "all";
 
 const WINDOWS: ReadonlyArray<{ label: string; value: WindowMs }> = [
-  { label: "5m", value: 300_000 },
-  { label: "30m", value: 1_800_000 },
-  { label: "1h", value: 3_600_000 },
-  { label: "All", value: "all" },
+  { label: "5 mnt", value: 300_000 },
+  { label: "30 mnt", value: 1_800_000 },
+  { label: "1 jam", value: 3_600_000 },
+  { label: "Semua", value: "all" },
 ];
 
 export function MonitoringView() {
@@ -47,11 +36,10 @@ export function MonitoringView() {
     <div className="space-y-6">
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-          Realtime Monitoring
+          Monitoring Real-Time
         </h1>
         <p className="max-w-xl text-sm text-muted-foreground md:text-base">
-          Live readings from the AC unit, rolling windows over the most
-          recent session.
+          Grafik pembacaan sensor AC secara langsung dengan pilihan rentang waktu.
         </p>
       </header>
 
@@ -67,8 +55,6 @@ function LiveSnapshot() {
 
   const v = (k: SensorMetric): number | null => reading?.[k] ?? null;
 
-  // The metric cards want short tails; use the very last entries (cap=6)
-  // through our existing hook.
   const tail = React.useMemo(
     () => ({
       indoor_temp: projectTail(series.indoor_temp, 6),
@@ -85,7 +71,7 @@ function LiveSnapshot() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <MetricCard
-        label="Indoor Temp"
+        label="Suhu Indoor"
         metric="indoor_temp"
         value={v("indoor_temp")}
         icon={Flame}
@@ -93,7 +79,7 @@ function LiveSnapshot() {
         trendTone="warning"
       />
       <MetricCard
-        label="Outdoor Temp"
+        label="Suhu Outdoor"
         metric="outdoor_temp"
         value={v("outdoor_temp")}
         icon={Flame}
@@ -101,7 +87,7 @@ function LiveSnapshot() {
         trendTone="warning"
       />
       <MetricCard
-        label="Supply Temp"
+        label="Suhu Supply AC"
         metric="supply_temp"
         value={v("supply_temp")}
         icon={Flame}
@@ -109,7 +95,7 @@ function LiveSnapshot() {
         trendTone="warning"
       />
       <MetricCard
-        label="Voltage"
+        label="Tegangan"
         metric="voltage"
         value={v("voltage")}
         icon={Bolt}
@@ -117,7 +103,7 @@ function LiveSnapshot() {
         trendTone="warning"
       />
       <MetricCard
-        label="Current"
+        label="Arus"
         metric="current"
         value={v("current")}
         icon={Activity}
@@ -125,7 +111,7 @@ function LiveSnapshot() {
         trendTone="warning"
       />
       <MetricCard
-        label="Power"
+        label="Daya"
         metric="power"
         value={v("power")}
         icon={Power}
@@ -138,15 +124,14 @@ function LiveSnapshot() {
 
 function WindowedCharts() {
   const [windowMs, setWindowMs] = React.useState<WindowMs>(300_000);
-  const series = useMetricSeries();
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Live charts</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Grafik Real-Time</h2>
           <p className="text-xs text-muted-foreground">
-            Update rate matches the ESP32 reading interval.
+            Frekuensi pembaruan mengikuti interval pengiriman data sensor.
           </p>
         </div>
         <WindowSelector value={windowMs} onChange={setWindowMs} />
@@ -154,8 +139,8 @@ function WindowedCharts() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard
-          title="Indoor Temperature"
-          description="Room temperature (°C)"
+          title="Suhu Indoor"
+          description="Suhu ruangan indoor (°C)"
           tone="primary"
           yFormatter={(v) => v.toFixed(1)}
           yDomain={[16, 32]}
@@ -163,8 +148,8 @@ function WindowedCharts() {
           windowMs={windowMs}
         />
         <ChartCard
-          title="Outdoor Temperature"
-          description="Outdoor temperature (°C)"
+          title="Suhu Outdoor"
+          description="Suhu lingkungan outdoor (°C)"
           tone="info"
           yFormatter={(v) => v.toFixed(1)}
           yDomain={[20, 45]}
@@ -172,8 +157,8 @@ function WindowedCharts() {
           windowMs={windowMs}
         />
         <ChartCard
-          title="Supply Temperature"
-          description="AC supply temperature (°C)"
+          title="Suhu Supply AC"
+          description="Suhu hembusan udara AC (°C)"
           tone="accent"
           yFormatter={(v) => v.toFixed(1)}
           yDomain={[10, 25]}
@@ -181,8 +166,8 @@ function WindowedCharts() {
           windowMs={windowMs}
         />
         <ChartCard
-          title="Voltage"
-          description="Mains voltage (V)"
+          title="Tegangan Listrik"
+          description="Tegangan utama (V)"
           tone="accent"
           yFormatter={(v) => v.toFixed(0)}
           yDomain={[200, 240]}
@@ -190,8 +175,8 @@ function WindowedCharts() {
           windowMs={windowMs}
         />
         <ChartCard
-          title="Power"
-          description="Instantaneous power (W)"
+          title="Daya Listrik"
+          description="Daya aktif (W)"
           tone="accent"
           yFormatter={(v) => v.toFixed(0)}
           yDomain={[0, 1500]}
@@ -199,8 +184,8 @@ function WindowedCharts() {
           windowMs={windowMs}
         />
         <ChartCard
-          title="Current"
-          description="Load current (A)"
+          title="Arus Listrik"
+          description="Arus beban (A)"
           tone="primary"
           yFormatter={(v) => v.toFixed(2)}
           yDomain={[0, 8]}

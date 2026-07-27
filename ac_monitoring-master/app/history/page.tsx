@@ -25,10 +25,10 @@ const HEALTH_SCORE_BY_STATUS: Record<DeviceStatus | "offline", number> = {
 };
 
 const STATUS_STYLES: Record<DeviceStatus | "offline", string> = {
-  healthy: "bg-green-100 text-green-800",
-  warning: "bg-amber-100 text-amber-800",
-  critical: "bg-red-100 text-red-800",
-  offline: "bg-slate-100 text-slate-800",
+  healthy: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  critical: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  offline: "bg-slate-100 text-slate-800 dark:bg-slate-900/40 dark:text-slate-300",
 };
 
 function formatTimestamp(timestamp: number) {
@@ -45,7 +45,10 @@ function formatTimestamp(timestamp: number) {
 
 function formatStatusLabel(status: DeviceStatus | undefined) {
   if (!status) return "Offline";
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  if (status === "healthy") return "Healthy";
+  if (status === "warning") return "Warning";
+  if (status === "critical") return "Kritis";
+  return "Offline";
 }
 
 export default function HistoryPage() {
@@ -78,12 +81,12 @@ export default function HistoryPage() {
 
     const csv = [
       [
-        "Timestamp",
-        "Indoor Temp",
-        "Outdoor Temp",
-        "Supply Temp",
-        "Power (W)",
-        "Health Score",
+        "Waktu",
+        "Suhu Indoor",
+        "Suhu Outdoor",
+        "Suhu Supply AC",
+        "Daya Listrik (W)",
+        "Skor Kesehatan",
         "Status",
       ].join(","),
       ...rows.map((row) =>
@@ -106,7 +109,7 @@ export default function HistoryPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `history-page-${page}.csv`;
+    anchor.download = `riwayat-halaman-${page}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -117,35 +120,35 @@ export default function HistoryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">History</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Riwayat Data</h1>
           <p className="text-muted-foreground">
-            Live telemetry history with the latest sensor readings and pagination.
+            Daftar riwayat pembacaan data sensor AC dan opsi ekspor CSV.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={handleExport} disabled={history.length === 0}>
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            Ekspor CSV
           </Button>
           <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
-            <span>{history.length} total rows</span>
+            <span>Total {history.length} baris</span>
             <span>
-              Page {page} / {totalPages}
+              Halaman {page} / {totalPages}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card text-card-foreground shadow-soft">
+      <div className="rounded-lg border bg-card text-card-foreground shadow-soft overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Timestamp</TableHead>
-              <TableHead className="text-right">Indoor Temp.</TableHead>
-              <TableHead className="text-right">Outdoor Temp.</TableHead>
-              <TableHead className="text-right">Supply Temp.</TableHead>
-              <TableHead className="text-right">Power (W)</TableHead>
-              <TableHead className="text-right">Health Score</TableHead>
+              <TableHead>Waktu</TableHead>
+              <TableHead className="text-right">Suhu Indoor</TableHead>
+              <TableHead className="text-right">Suhu Outdoor</TableHead>
+              <TableHead className="text-right">Suhu Supply AC</TableHead>
+              <TableHead className="text-right">Daya (W)</TableHead>
+              <TableHead className="text-right">Skor Kesehatan</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -185,7 +188,7 @@ export default function HistoryPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         <p>
-          Showing {pageData.length} rows of {history.length} total recent readings.
+          Menampilkan {pageData.length} baris dari {history.length} total riwayat data terbaru.
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -195,7 +198,7 @@ export default function HistoryPage() {
             disabled={page === 1}
           >
             <ChevronLeft className="mr-2 h-4 w-4" />
-            Previous
+            Sebelumnya
           </Button>
           <Button
             variant="secondary"
@@ -203,7 +206,7 @@ export default function HistoryPage() {
             onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
             disabled={page === totalPages}
           >
-            Next
+            Selanjutnya
             <ChevronRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

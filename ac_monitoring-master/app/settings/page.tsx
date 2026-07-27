@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -45,7 +44,6 @@ export default function SettingsPage() {
     window.localStorage.setItem(TEST_MODE_STORAGE_KEY, testMode);
     window.dispatchEvent(new Event("storage"));
 
-    // Dynamic import untuk test service
     (async () => {
       const { getTestSensorService } = await import("@/services/test-sensor-service");
       const service = getTestSensorService();
@@ -60,7 +58,6 @@ export default function SettingsPage() {
     })();
   }, [testMode]);
 
-  // Timer untuk countdown 10 menit
   React.useEffect(() => {
     if (testStartTime === null) return;
 
@@ -72,7 +69,6 @@ export default function SettingsPage() {
       setTimeRemaining(remaining);
 
       if (remaining === 0) {
-        // Auto reset setelah 10 menit
         setTestMode("none");
         clearInterval(interval);
       }
@@ -92,26 +88,26 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Pengaturan</h1>
         <p className="text-muted-foreground">
-          Manage your application settings and preferences.
+          Kelola preferensi aplikasi, notifikasi, dan pengujian simulasi logika fuzzy.
         </p>
       </div>
 
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Appearance</CardTitle>
+            <CardTitle>Tampilan</CardTitle>
             <CardDescription>
-              Customize the look and feel of the application.
+              Kustomisasi tema tampilan aplikasi.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between space-x-2">
               <Label htmlFor="dark-mode" className="flex flex-col space-y-1">
-                <span>Dark Mode</span>
+                <span>Mode Gelap (Dark Mode)</span>
                 <span className="font-normal leading-snug text-muted-foreground">
-                  Enable or disable dark mode.
+                  Aktifkan atau nonaktifkan mode gelap.
                 </span>
               </Label>
               <Switch
@@ -125,17 +121,17 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Notifications</CardTitle>
+            <CardTitle>Notifikasi</CardTitle>
             <CardDescription>
-              Configure how you receive notifications.
+              Pengaturan pemberitahuan peringatan layanan.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between space-x-2">
               <Label htmlFor="service-alerts" className="flex flex-col space-y-1">
-                <span>Service Alerts</span>
+                <span>Peringatan Layanan</span>
                 <span className="font-normal leading-snug text-muted-foreground">
-                  Receive a notification when the AC status is &quot;Service Required&quot;.
+                  Terima notifikasi ketika status AC membutuhkan perawatan.
                 </span>
               </Label>
               <Switch id="service-alerts" defaultChecked />
@@ -145,12 +141,12 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className={isTestingActive ? "text-blue-600" : ""}>
-              Fuzzy Logic Testing
+            <CardTitle className={isTestingActive ? "text-blue-600 dark:text-blue-400" : ""}>
+              Pengujian Logika Fuzzy
               {isTestingActive && ` - ${formatTime(timeRemaining)}`}
             </CardTitle>
             <CardDescription>
-              Test fuzzy logic conditions for AC health status.
+              Uji kondisi simulasi logika fuzzy untuk status kesehatan AC secara real-time dan global di seluruh halaman aplikasi.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -160,48 +156,48 @@ export default function SettingsPage() {
                 onClick={() => setTestMode("none")}
                 className="w-full"
               >
-                Normal
+                Normal (Data Asli)
               </Button>
               <Button
                 variant={testMode === "healthy" ? "default" : "outline"}
                 onClick={() => setTestMode("healthy")}
                 className="w-full"
               >
-                Healthy
+                Sehat (Healthy)
               </Button>
               <Button
                 variant={testMode === "warning" ? "default" : "outline"}
                 onClick={() => setTestMode("warning")}
                 className="w-full"
               >
-                Warning
+                Peringatan (Warning)
               </Button>
               <Button
                 variant={testMode === "mixed" ? "default" : "outline"}
                 onClick={() => setTestMode("mixed")}
                 className="w-full"
               >
-                Mixed (5s cycle)
+                Campuran (Berganti 5s)
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
               {isTestingActive
-                ? `Testing condition: ${testMode} - Auto resets in ${formatTime(timeRemaining)}`
-                : "Select a test condition to start"}
+                ? `Kondisi pengujian aktif: ${testMode} - Otomatis kembali ke data asli dalam ${formatTime(timeRemaining)}`
+                : "Pilih kondisi pengujian untuk memulai simulasi"}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Firebase</CardTitle>
+            <CardTitle>Database Firebase</CardTitle>
             <CardDescription>
-              Firebase Realtime Database connection settings.
+              Pengaturan koneksi Firebase Realtime Database.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="firebase-url">Database URL</Label>
+              <Label htmlFor="firebase-url">URL Database</Label>
               <Input
                 id="firebase-url"
                 placeholder="https://your-project-id.firebaseio.com"
@@ -209,18 +205,18 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="firebase-secret">Service Account Key</Label>
+              <Label htmlFor="firebase-secret">Kunci Akun Layanan (Service Account Key)</Label>
               <Input
                 id="firebase-secret"
                 type="password"
-                placeholder="Paste your service account JSON here"
+                placeholder="Paste kunci akun layanan JSON Anda di sini"
               />
             </div>
           </CardContent>
         </Card>
 
         <div className="flex justify-end">
-          <Button>Save Changes</Button>
+          <Button>Simpan Perubahan</Button>
         </div>
       </div>
     </div>

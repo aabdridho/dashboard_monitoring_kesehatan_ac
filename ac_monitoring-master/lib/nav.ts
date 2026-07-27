@@ -7,12 +7,6 @@ import {
   Settings,
 } from "lucide-react";
 
-/**
- * Single source of truth for the sidebar navigation.
- *
- * Route segments follow the App Router convention. The sidebar reads this
- * list directly; adding a new feature is a one-line edit here.
- */
 export interface NavItem {
   label: string;
   href: string;
@@ -25,30 +19,30 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Dashboard",
     href: "/",
     icon: LayoutDashboard,
-    description: "Overview & live readings",
+    description: "Ringkasan & data sensor",
   },
   {
     label: "Monitoring",
     href: "/monitoring",
     icon: Activity,
-    description: "Realtime sensor charts",
+    description: "Grafik sensor real-time",
   },
   {
-    label: "History",
+    label: "Riwayat",
     href: "/history",
     icon: History,
-    description: "Past readings & exports",
+    description: "Riwayat data & ekspor",
   },
   {
-    label: "Analytics",
+    label: "Analitik",
     href: "/analytics",
     icon: BarChart3,
-    description: "Trends & averages",
+    description: "Statistik & rata-rata",
   },
   {
-    label: "Settings",
+    label: "Pengaturan",
     href: "/settings",
     icon: Settings,
-    description: "Theme, alerts, Firebase",
+    description: "Simulasi & preferensi",
   },
 ] as const;
