@@ -25,10 +25,10 @@ const HEALTH_SCORE_BY_STATUS: Record<DeviceStatus | "offline", number> = {
 };
 
 const STATUS_STYLES: Record<DeviceStatus | "offline", string> = {
-  healthy: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  critical: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  offline: "bg-slate-100 text-slate-800 dark:bg-slate-900/40 dark:text-slate-300",
+  healthy: "bg-emerald-100 text-emerald-950 dark:bg-emerald-900/50 dark:text-emerald-200 font-bold border border-emerald-400/50 px-3 py-1 shadow-sm",
+  warning: "bg-amber-100 text-amber-950 dark:bg-amber-900/50 dark:text-amber-200 font-bold border border-amber-400/50 px-3 py-1 shadow-sm",
+  critical: "bg-rose-100 text-rose-950 dark:bg-rose-900/50 dark:text-rose-200 font-bold border border-rose-400/50 px-3 py-1 shadow-sm",
+  offline: "bg-slate-100 text-slate-950 dark:bg-slate-900/50 dark:text-slate-200 font-bold border border-slate-400/50 px-3 py-1 shadow-sm",
 };
 
 function formatTimestamp(timestamp: number) {
