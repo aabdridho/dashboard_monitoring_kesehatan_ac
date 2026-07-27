@@ -1,248 +1,306 @@
 /**
  * Fuzzy Logic Membership Functions & Mamdani Inference Engine
  *
- * Input Variables:
- * - disparitasSuhuOut: Selisih |Setpoint - Suhu Supply| (°C)
- * - deltaSuhuRoom: Selisih Suhu Indoor vs Outdoor (°C)
- * - konsumsikWh: Konsumsi energi AC dalam Watt
+ * Input Variables (Sesuai Spesifikasi 81 Rule):
+ * - Suhu Ruangan (Indoor): 22 - 30 °C
+ * - Suhu Luar (Outdoor): 18 - 32 °C
+ * - Suhu Keluaran AC (AC Supply): 16 - 30 °C
+ * - Daya Listrik (Watt): 0 - 1327 W
  *
  * Output Variable:
- * - statusSkor: 0-100 (Centroid Defuzzification)
- * - Threshold: >= 60 = "healthy", < 60 = "warning"
+ * - Status AC: 0-100 (Centroid Defuzzification)
+ * - Threshold: >= 50 = "Warning", < 50 = "Sehat"
  */
 
-/**
- * Membership Function: Triangular
- */
-function triangularMF(x: number, a: number, b: number, c: number): number {
+// ============================================================================
+// 1. FUNGSI KEANGGOTAAN (MEMBERSHIP FUNCTIONS)
+// ============================================================================
+
+function fuzzySegitiga(x: number, a: number, b: number, c: number): number {
   if (x <= a || x >= c) return 0;
   if (x === b) return 1;
   if (x > a && x < b) return (x - a) / (b - a);
-  return (c - x) / (c - b);
+  if (x > b && x < c) return (c - x) / (c - b);
+  return 0;
 }
 
-/**
- * Membership Function: Trapezoidal
- *
- * Uses strict < for lower bound so that left-shoulder trapezoids
- * (where a === b) correctly return 1.0 at x = a = b.
- */
-function trapezoidalMF(
+function fuzzyTrapesium(
   x: number,
   a: number,
   b: number,
   c: number,
   d: number
 ): number {
-  if (x < a || x > d) return 0;
+  if (x <= a || x >= d) return 0;
   if (x >= b && x <= c) return 1;
   if (x > a && x < b) return (x - a) / (b - a);
   if (x > c && x < d) return (d - x) / (d - c);
   return 0;
 }
 
-/**
- * Fuzzifikasi untuk disparitasSuhuOut (°C)
- * Range: 0-10°C
- *
- * Disparitas = |setpoint - supply_temp|
- * AC baru diservis: supply ≈ setpoint, disparitas ≈ 0-4 → Normal
- * AC bermasalah: supply jauh dari setpoint, disparitas > 5 → Tinggi
- */
-function fuzzifyDisparitasSuhu(disparity: number): {
-  normal: number;
-  tinggi: number;
-} {
-  const dispClamped = Math.max(0, Math.min(10, disparity));
+// ============================================================================
+// 2. FUZZIFIKASI INPUT SENSOR
+// ============================================================================
 
+function fuzzifyIndoor(x: number) {
   return {
-    // Normal: 0-5°C (trapesium: -1, 0, 5, 7)
-    normal: trapezoidalMF(dispClamped, -1, 0, 5, 7),
-    // Tinggi: >5°C (trapesium: 5, 7, 10, 12)
-    tinggi: trapezoidalMF(dispClamped, 5, 7, 10, 12),
+    dingin: fuzzyTrapesium(x, 22, 22, 24, 26),
+    normal: fuzzySegitiga(x, 24, 26, 28),
+    panas: fuzzyTrapesium(x, 26, 28, 30, 30),
   };
 }
 
-/**
- * Fuzzifikasi untuk deltaSuhuRoom (°C)
- * Range: -10 sampai 10°C
- *
- * delta = indoor - outdoor
- * AC mendinginkan ruangan: indoor < outdoor → delta negatif → Turun (baik)
- * Suhu ruangan stabil/nyaman: delta sekitar 0 → TetapNaik
- * AC baru diservis: indoor ≈ outdoor → delta ≈ 0
- */
-function fuzzifyDeltaSuhuRoom(delta: number): {
-  turun: number;
-  tetapNaik: number;
-} {
-  const deltaClamped = Math.max(-10, Math.min(10, delta));
-
+function fuzzifyOutdoor(x: number) {
   return {
-    // Turun: Suhu indoor jauh di bawah outdoor (trapesium: -10, -8, -2, -0.5)
-    turun: trapezoidalMF(deltaClamped, -10, -8, -2, -0.5),
-    // TetapNaik: Suhu stagnan/ruangan nyaman (trapesium: -2, -0.5, 5, 10)
-    tetapNaik: trapezoidalMF(deltaClamped, -2, -0.5, 5, 10),
+    rendah: fuzzyTrapesium(x, 18, 18, 21, 25),
+    sedang: fuzzySegitiga(x, 21, 25, 29),
+    tinggi: fuzzyTrapesium(x, 25, 29, 32, 32),
   };
 }
 
-/**
- * Fuzzifikasi untuk konsumsikWh (Watt)
- * Range: 0-3000W
- *
- * AC standby/normal: 0-1800W → Normal
- * AC overload: >2000W → TidakNormal
- */
-function fuzzifyKonsumsiKwh(power: number): {
-  normal: number;
-  tidakNormal: number;
-} {
-  const powerClamped = Math.max(0, Math.min(3000, power));
-
+function fuzzifyAC(x: number) {
   return {
-    // Normal: Daya AC normal dan standby (trapesium: -1, 0, 1800, 2200)
-    normal: trapezoidalMF(powerClamped, -1, 0, 1800, 2200),
-    // TidakNormal: Daya overload (trapesium: 1800, 2200, 2800, 3200)
-    tidakNormal: trapezoidalMF(powerClamped, 1800, 2200, 2800, 3200),
+    dingin: fuzzyTrapesium(x, 16, 16, 19, 22),
+    normal: fuzzySegitiga(x, 19, 22, 25),
+    panas: fuzzyTrapesium(x, 22, 25, 30, 30),
   };
 }
 
-/**
- * Output Membership Functions untuk Status Score (0-100)
- */
-function outputMembershipHealthy(score: number): number {
-  // Healthy: Triangular (50, 80, 100)
-  return triangularMF(score, 50, 80, 100);
-}
-
-function outputMembershipWarning(score: number): number {
-  // Warning: Triangular (0, 20, 50)
-  return triangularMF(score, 0, 20, 50);
-}
-
-interface MamdaniRuleResult {
-  healthyStrength: number;
-  warningStrength: number;
-}
-
-function evaluateMamdaniRules(
-  disparityMF: ReturnType<typeof fuzzifyDisparitasSuhu>,
-  deltaMF: ReturnType<typeof fuzzifyDeltaSuhuRoom>,
-  powerMF: ReturnType<typeof fuzzifyKonsumsiKwh>
-): MamdaniRuleResult {
-  // RULE 1: IF (disparitas Normal) AND (delta Turun) AND (power Normal) THEN healthy
-  const rule1 = Math.min(disparityMF.normal, deltaMF.turun, powerMF.normal);
-
-  // RULE 2: IF (disparitas Tinggi) AND (delta TetapNaik) AND (power Normal) THEN warning
-  const rule2 = Math.min(disparityMF.tinggi, deltaMF.tetapNaik, powerMF.normal);
-
-  // RULE 3: IF (disparitas Tinggi) AND (delta TetapNaik) AND (power TidakNormal) THEN warning
-  const rule3 = Math.min(disparityMF.tinggi, deltaMF.tetapNaik, powerMF.tidakNormal);
-
-  // RULE 4: IF (disparitas Normal) AND (delta TetapNaik) AND (power Normal) THEN healthy
-  // Ini rule utama untuk AC baru diservis: disparitas kecil, suhu stabil, daya normal
-  const rule4 = Math.min(disparityMF.normal, deltaMF.tetapNaik, powerMF.normal);
-
-  // RULE 5: IF (disparitas Normal) AND (delta Turun) AND (power TidakNormal) THEN warning
-  const rule5 = Math.min(disparityMF.normal, deltaMF.turun, powerMF.tidakNormal);
-
-  // RULE 6: IF (disparitas Tinggi) AND (delta Turun) AND (power Normal) THEN warning
-  const rule6 = Math.min(disparityMF.tinggi, deltaMF.turun, powerMF.normal);
-
-  // RULE 7: IF (disparitas Tinggi) AND (delta Turun) AND (power TidakNormal) THEN warning
-  const rule7 = Math.min(disparityMF.tinggi, deltaMF.turun, powerMF.tidakNormal);
-
+function fuzzifyDaya(x: number) {
   return {
-    healthyStrength: Math.max(rule1, rule4),
-    warningStrength: Math.max(rule2, rule3, rule5, rule6, rule7),
+    rendah: fuzzyTrapesium(x, 0, 0, 300, 600),
+    sedang: fuzzySegitiga(x, 300, 650, 1000),
+    tinggi: fuzzyTrapesium(x, 650, 1000, 1327, 1327),
   };
 }
 
-/**
- * Defuzzifikasi Centroid (Center of Gravity)
- */
+// ============================================================================
+// 3. EVALUASI ATURAN (INFERENCE ENGINE - 81 RULES)
+// ============================================================================
+
+function evaluateRules(
+  indoor: ReturnType<typeof fuzzifyIndoor>,
+  outdoor: ReturnType<typeof fuzzifyOutdoor>,
+  ac: ReturnType<typeof fuzzifyAC>,
+  daya: ReturnType<typeof fuzzifyDaya>
+) {
+  let sehat = 0;
+  let warning = 0;
+
+  const applyRule = (
+    indKey: keyof typeof indoor,
+    outKey: keyof typeof outdoor,
+    acKey: keyof typeof ac,
+    dayaKey: keyof typeof daya,
+    status: "sehat" | "warning"
+  ) => {
+    // Operator AND = MIN
+    const alpha = Math.min(
+      indoor[indKey],
+      outdoor[outKey],
+      ac[acKey],
+      daya[dayaKey]
+    );
+
+    // Agregasi OR = MAX
+    if (status === "sehat") {
+      sehat = Math.max(sehat, alpha);
+    } else {
+      warning = Math.max(warning, alpha);
+    }
+  };
+
+  // 81 Aturan Base Rule
+  // --- INDOOR DINGIN ---
+  // Outdoor Rendah
+  applyRule("dingin", "rendah", "dingin", "rendah", "sehat");
+  applyRule("dingin", "rendah", "dingin", "sedang", "sehat");
+  applyRule("dingin", "rendah", "dingin", "tinggi", "warning");
+  applyRule("dingin", "rendah", "normal", "rendah", "sehat");
+  applyRule("dingin", "rendah", "normal", "sedang", "sehat");
+  applyRule("dingin", "rendah", "normal", "tinggi", "warning");
+  applyRule("dingin", "rendah", "panas", "rendah", "warning");
+  applyRule("dingin", "rendah", "panas", "sedang", "warning");
+  applyRule("dingin", "rendah", "panas", "tinggi", "warning");
+
+  // Outdoor Sedang
+  applyRule("dingin", "sedang", "dingin", "rendah", "sehat");
+  applyRule("dingin", "sedang", "dingin", "sedang", "sehat");
+  applyRule("dingin", "sedang", "dingin", "tinggi", "sehat");
+  applyRule("dingin", "sedang", "normal", "rendah", "sehat");
+  applyRule("dingin", "sedang", "normal", "sedang", "sehat");
+  applyRule("dingin", "sedang", "normal", "tinggi", "sehat");
+  applyRule("dingin", "sedang", "panas", "rendah", "warning");
+  applyRule("dingin", "sedang", "panas", "sedang", "warning");
+  applyRule("dingin", "sedang", "panas", "tinggi", "warning");
+
+  // Outdoor Tinggi
+  applyRule("dingin", "tinggi", "dingin", "rendah", "warning");
+  applyRule("dingin", "tinggi", "dingin", "sedang", "sehat");
+  applyRule("dingin", "tinggi", "dingin", "tinggi", "sehat");
+  applyRule("dingin", "tinggi", "normal", "rendah", "warning");
+  applyRule("dingin", "tinggi", "normal", "sedang", "sehat");
+  applyRule("dingin", "tinggi", "normal", "tinggi", "sehat");
+  applyRule("dingin", "tinggi", "panas", "rendah", "warning");
+  applyRule("dingin", "tinggi", "panas", "sedang", "warning");
+  applyRule("dingin", "tinggi", "panas", "tinggi", "warning");
+
+  // --- INDOOR NORMAL ---
+  // Outdoor Rendah
+  applyRule("normal", "rendah", "dingin", "rendah", "sehat");
+  applyRule("normal", "rendah", "dingin", "sedang", "sehat");
+  applyRule("normal", "rendah", "dingin", "tinggi", "warning");
+  applyRule("normal", "rendah", "normal", "rendah", "sehat");
+  applyRule("normal", "rendah", "normal", "sedang", "sehat");
+  applyRule("normal", "rendah", "normal", "tinggi", "warning");
+  applyRule("normal", "rendah", "panas", "rendah", "warning");
+  applyRule("normal", "rendah", "panas", "sedang", "warning");
+  applyRule("normal", "rendah", "panas", "tinggi", "warning");
+
+  // Outdoor Sedang
+  applyRule("normal", "sedang", "dingin", "rendah", "sehat");
+  applyRule("normal", "sedang", "dingin", "sedang", "sehat");
+  applyRule("normal", "sedang", "dingin", "tinggi", "sehat");
+  applyRule("normal", "sedang", "normal", "rendah", "sehat");
+  applyRule("normal", "sedang", "normal", "sedang", "sehat");
+  applyRule("normal", "sedang", "normal", "tinggi", "sehat");
+  applyRule("normal", "sedang", "panas", "rendah", "warning");
+  applyRule("normal", "sedang", "panas", "sedang", "warning");
+  applyRule("normal", "sedang", "panas", "tinggi", "warning");
+
+  // Outdoor Tinggi
+  applyRule("normal", "tinggi", "dingin", "rendah", "warning");
+  applyRule("normal", "tinggi", "dingin", "sedang", "sehat");
+  applyRule("normal", "tinggi", "dingin", "tinggi", "sehat");
+  applyRule("normal", "tinggi", "normal", "rendah", "warning");
+  applyRule("normal", "tinggi", "normal", "sedang", "sehat");
+  applyRule("normal", "tinggi", "normal", "tinggi", "sehat");
+  applyRule("normal", "tinggi", "panas", "rendah", "warning");
+  applyRule("normal", "tinggi", "panas", "sedang", "warning");
+  applyRule("normal", "tinggi", "panas", "tinggi", "warning");
+
+  // --- INDOOR PANAS ---
+  // Outdoor Rendah
+  applyRule("panas", "rendah", "dingin", "rendah", "sehat");
+  applyRule("panas", "rendah", "dingin", "sedang", "sehat");
+  applyRule("panas", "rendah", "dingin", "tinggi", "warning");
+  applyRule("panas", "rendah", "normal", "rendah", "warning");
+  applyRule("panas", "rendah", "normal", "sedang", "warning");
+  applyRule("panas", "rendah", "normal", "tinggi", "warning");
+  applyRule("panas", "rendah", "panas", "rendah", "warning");
+  applyRule("panas", "rendah", "panas", "sedang", "warning");
+  applyRule("panas", "rendah", "panas", "tinggi", "warning");
+
+  // Outdoor Sedang
+  applyRule("panas", "sedang", "dingin", "rendah", "sehat");
+  applyRule("panas", "sedang", "dingin", "sedang", "sehat");
+  applyRule("panas", "sedang", "dingin", "tinggi", "sehat");
+  applyRule("panas", "sedang", "normal", "rendah", "warning");
+  applyRule("panas", "sedang", "normal", "sedang", "warning");
+  applyRule("panas", "sedang", "normal", "tinggi", "warning");
+  applyRule("panas", "sedang", "panas", "rendah", "warning");
+  applyRule("panas", "sedang", "panas", "sedang", "warning");
+  applyRule("panas", "sedang", "panas", "tinggi", "warning");
+
+  // Outdoor Tinggi
+  applyRule("panas", "tinggi", "dingin", "rendah", "warning");
+  applyRule("panas", "tinggi", "dingin", "sedang", "sehat");
+  applyRule("panas", "tinggi", "dingin", "tinggi", "sehat");
+  applyRule("panas", "tinggi", "normal", "rendah", "warning");
+  applyRule("panas", "tinggi", "normal", "sedang", "warning");
+  applyRule("panas", "tinggi", "normal", "tinggi", "warning");
+  applyRule("panas", "tinggi", "panas", "rendah", "warning");
+  applyRule("panas", "tinggi", "panas", "sedang", "warning");
+  applyRule("panas", "tinggi", "panas", "tinggi", "warning");
+
+  return { sehat, warning };
+}
+
+// ============================================================================
+// 4. DEFUZZIFIKASI (METODE CENTROID)
+// ============================================================================
+
+function outputSehat(z: number): number {
+  return fuzzyTrapesium(z, 0, 0, 40, 60);
+}
+
+function outputWarning(z: number): number {
+  return fuzzyTrapesium(z, 40, 60, 100, 100);
+}
+
 function defuzzifyCentroid(
-  healthyStrength: number,
+  sehatStrength: number,
   warningStrength: number
 ): number {
-  const samples = 100;
   let numerator = 0;
   let denominator = 0;
 
-  for (let i = 0; i <= samples; i++) {
-    const score = (i / samples) * 100;
-    const membershipValue = Math.max(
-      outputMembershipHealthy(score) * healthyStrength,
-      outputMembershipWarning(score) * warningStrength
+  // Step 0.1 untuk akurasi tinggi pada diskritisasi domain numerik (0-100)
+  const step = 0.1;
+
+  for (let z = 0; z <= 100; z += step) {
+    const muSehat = outputSehat(z);
+    const muWarning = outputWarning(z);
+
+    const mu = Math.max(
+      Math.min(sehatStrength, muSehat),
+      Math.min(warningStrength, muWarning)
     );
 
-    numerator += score * membershipValue;
-    denominator += membershipValue;
+    numerator += z * mu;
+    denominator += mu;
   }
 
-  // Jika tidak ada rule yang aktif, default ke healthy (AC beroperasi normal)
-  return denominator === 0 ? 80 : numerator / denominator;
+  // Jika tidak ada rule aktif, kembalikan ke kondisi sehat secara default
+  if (denominator === 0) return 30;
+
+  return numerator / denominator;
 }
 
-/**
- * Fungsi Utama: Evaluasi Status Kesehatan AC
- */
-export function evaluateACHealth(
-  disparitasSuhuOut: number,
-  deltaSuhuRoom: number,
-  konsumsikWh: number
-): { status: "healthy" | "warning"; score: number } {
-  const disparityMF = fuzzifyDisparitasSuhu(disparitasSuhuOut);
-  const deltaMF = fuzzifyDeltaSuhuRoom(deltaSuhuRoom);
-  const powerMF = fuzzifyKonsumsiKwh(konsumsikWh);
-
-  const ruleResult = evaluateMamdaniRules(disparityMF, deltaMF, powerMF);
-
-  const score = defuzzifyCentroid(
-    ruleResult.healthyStrength,
-    ruleResult.warningStrength
-  );
-
-  const status = score >= 60 ? "healthy" : "warning";
-
-  return { status, score };
-}
+// ============================================================================
+// 5. EKSPOR ADAPTER UNTUK INTEGRASI KE DALAM DASHBOARD (UI & HOOKS)
+// ============================================================================
 
 /**
  * Adapter: Evaluasi status dari data SensorReading
- *
- * Jika data sensor tidak lengkap (field bernilai 0 dari merge default),
- * fungsi ini akan mengembalikan "healthy" karena kita tidak bisa
- * membuat penilaian yang akurat dari data yang tidak lengkap.
+ * Ini dipakai oleh useRealtimeSensorData dan useFirebaseHistory.
  */
 export function deriveACStatusFromSensors(reading: {
-  setpoint?: number;
+  setpoint?: number; // Tidak terpakai lagi di spesifikasi baru
   supply_temp?: number;
   indoor_temp?: number;
   outdoor_temp?: number;
   power?: number;
 }): "healthy" | "warning" {
-  const hasSupplyTemp = typeof reading.supply_temp === "number" && reading.supply_temp > 0;
-  const hasIndoorTemp = typeof reading.indoor_temp === "number" && reading.indoor_temp > 0;
-  const hasOutdoorTemp = typeof reading.outdoor_temp === "number" && reading.outdoor_temp > 0;
+  // Jika data sensor kunci tidak tersedia dari Firebase (merging lag dsb), default ke healthy
+  const hasSupplyTemp =
+    typeof reading.supply_temp === "number" && reading.supply_temp > 0;
+  const hasIndoorTemp =
+    typeof reading.indoor_temp === "number" && reading.indoor_temp > 0;
 
-  // Jika data sensor kunci tidak tersedia, default ke healthy
-  // (data 0 berasal dari merge default Firebase, bukan sensor asli)
   if (!hasSupplyTemp && !hasIndoorTemp) return "healthy";
 
-  const rawSetpoint = reading.setpoint && reading.setpoint > 0 ? reading.setpoint : 22;
-  const setpoint = Math.max(16, Math.min(30, rawSetpoint));
-  const supplyTemp = hasSupplyTemp
-    ? Math.max(16, Math.min(30, reading.supply_temp!))
-    : setpoint;
+  // Data cleansing / fallback
   const indoorTemp = hasIndoorTemp ? reading.indoor_temp! : 24;
-  const outdoorTemp = hasOutdoorTemp ? reading.outdoor_temp! : indoorTemp + 2;
-  const power = reading.power ?? 0;
+  const outdoorTemp =
+    typeof reading.outdoor_temp === "number" && reading.outdoor_temp > 0
+      ? reading.outdoor_temp
+      : 30;
+  const acSupplyTemp = hasSupplyTemp ? reading.supply_temp! : 20;
+  const dayaWatt = typeof reading.power === "number" ? reading.power : 0;
 
-  const disparitasSuhuOut = Math.abs(supplyTemp - setpoint);
-  const deltaSuhuRoom = indoorTemp - outdoorTemp;
+  // 1. Fuzzifikasi
+  const ind = fuzzifyIndoor(indoorTemp);
+  const out = fuzzifyOutdoor(outdoorTemp);
+  const ac = fuzzifyAC(acSupplyTemp);
+  const daya = fuzzifyDaya(dayaWatt);
 
-  const { status } = evaluateACHealth(disparitasSuhuOut, deltaSuhuRoom, power);
+  // 2. Evaluasi Aturan (Inference)
+  const rules = evaluateRules(ind, out, ac, daya);
 
-  return status;
+  // 3. Defuzzifikasi
+  const zScore = defuzzifyCentroid(rules.sehat, rules.warning);
+
+  // 4. Keputusan: z* >= 50 = Warning, z* < 50 = Sehat
+  return zScore >= 50 ? "warning" : "healthy";
 }
