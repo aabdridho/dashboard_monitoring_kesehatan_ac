@@ -11,10 +11,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Download, ChevronLeft, ChevronRight } from "lucide-react";
-import { useRealtimeContext } from "@/hooks/use-realtime-context";
+import { useFirebaseHistory } from "@/hooks/use-firebase-history";
 import type { DeviceStatus, SensorReading } from "@/types/sensor";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const MAX_HISTORY_ENTRIES = 1000;
 
 const HEALTH_SCORE_BY_STATUS: Record<DeviceStatus | "offline", number> = {
@@ -49,26 +49,8 @@ function formatStatusLabel(status: DeviceStatus | undefined) {
 }
 
 export default function HistoryPage() {
-  const { reading } = useRealtimeContext();
-  const [history, setHistory] = React.useState<SensorReading[]>([]);
+  const { history, loading } = useFirebaseHistory(MAX_HISTORY_ENTRIES);
   const [page, setPage] = React.useState(1);
-
-  React.useEffect(() => {
-    if (!reading) return;
-
-    setHistory((prev) => {
-      const next = [
-        ...prev,
-        {
-          ...reading,
-          __historyKey: `${reading.timestamp ?? Date.now()}-${prev.length}`,
-        },
-      ] as SensorReading[];
-      return next.length > MAX_HISTORY_ENTRIES
-        ? next.slice(next.length - MAX_HISTORY_ENTRIES)
-        : next;
-    });
-  }, [reading]);
 
   React.useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(history.length / PAGE_SIZE));

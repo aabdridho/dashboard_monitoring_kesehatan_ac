@@ -56,7 +56,7 @@ const EMPTY: MetricSeriesState = {
   energy: [],
 };
 
-const DEFAULT_CAP = 240;
+const DEFAULT_CAP = 200000;
 
 interface MetricSeriesContextValue extends MetricSeriesState {
   /** Always-stable handle to the push function. Call as `pushRef.current(r)`. */
@@ -83,6 +83,61 @@ export function MetricSeriesProvider({
   React.useEffect(() => {
     capRef.current = cap;
   }, [cap]);
+
+  const initialized = React.useRef(false);
+  
+  React.useEffect(() => {
+    if (initialized.current) return;
+    
+    import("@/services/firebase").then((mod) => {
+      if (!mod.isFirebaseConfigured()) return;
+      const { getFirebaseDatabase, FIREBASE_PATHS } = mod;
+      import("firebase/database").then((dbMod) => {
+        const { get, query, ref, orderByKey } = dbMod;
+        const db = getFirebaseDatabase();
+        const historyRef = ref(db, FIREBASE_PATHS.history);
+        
+        get(query(historyRef, orderByKey())).then((snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const arr = Object.values(data) as any[];
+            const typedArr: SensorReading[] = arr.map((item) => ({ ...item, timestamp: item.timestamp ?? Date.now() }));
+            typedArr.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+            
+            setSeries((prev) => {
+              const next: MetricSeriesState = { ...EMPTY };
+              typedArr.forEach(r => {
+                const t = r.timestamp;
+                if(!t) return;
+                if(r.indoor_temp !== undefined) next.indoor_temp.push({ t, value: r.indoor_temp });
+                if(r.outdoor_temp !== undefined) next.outdoor_temp.push({ t, value: r.outdoor_temp });
+                if(r.supply_temp !== undefined) next.supply_temp.push({ t, value: r.supply_temp });
+                if(r.voltage !== undefined) next.voltage.push({ t, value: r.voltage });
+                if(r.current !== undefined) next.current.push({ t, value: r.current });
+                if(r.power !== undefined) next.power.push({ t, value: r.power });
+                if(r.energy !== undefined) next.energy.push({ t, value: r.energy });
+              });
+              
+              // Merge with any realtime data that might have already arrived
+              return {
+                indoor_temp: mergeAndSort(next.indoor_temp, prev.indoor_temp),
+                outdoor_temp: mergeAndSort(next.outdoor_temp, prev.outdoor_temp),
+                supply_temp: mergeAndSort(next.supply_temp, prev.supply_temp),
+                voltage: mergeAndSort(next.voltage, prev.voltage),
+                current: mergeAndSort(next.current, prev.current),
+                power: mergeAndSort(next.power, prev.power),
+                energy: mergeAndSort(next.energy, prev.energy),
+                setpoint: prev.setpoint,
+                humidity: prev.humidity,
+                power_factor: prev.power_factor
+              };
+            });
+            initialized.current = true;
+          }
+        }).catch(() => {});
+      });
+    });
+  }, []);
 
   // Stable callback — empty deps, reads cap through capRef.
   const push = React.useCallback((reading: SensorReading) => {
@@ -172,4 +227,13 @@ function append(
   const next = arr.length >= cap ? arr.slice(1) : arr.slice();
   next.push({ t, value });
   return next;
+}
+
+function mergeAndSort(arr1: SeriesPoint[], arr2: SeriesPoint[]): SeriesPoint[] {
+  const map = new Map<number, number>();
+  arr1.forEach(p => map.set(p.t, p.value));
+  arr2.forEach(p => map.set(p.t, p.value));
+  return Array.from(map.entries())
+    .map(([t, value]) => ({ t, value }))
+    .sort((a, b) => a.t - b.t);
 }

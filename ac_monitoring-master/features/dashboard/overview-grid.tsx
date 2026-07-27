@@ -140,7 +140,6 @@ export function OverviewGrid() {
         trendTone="muted"
       />
       <AcStatusCard />
-      <RoomStatusCard />
     </div>
   );
 }
@@ -175,59 +174,4 @@ function AcStatusCard() {
       </CardContent>
     </Card>
   );
-}
-
-function RoomStatusCard() {
-  const { reading } = useRealtimeContext();
-  const comfort = computeRoomComfort(reading);
-
-  return (
-    <Card className="ring-1 ring-inset ring-[var(--ring-healthy)]">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-        <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Room Comfort
-        </CardTitle>
-        <span className="rounded-md bg-muted/60 p-1.5 text-muted-foreground">
-          <GaugeIcon className="h-3.5 w-3.5" />
-        </span>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-semibold tracking-tight tabular-nums">
-            {comfort.score}
-          </span>
-          <span className="text-sm font-medium text-muted-foreground">
-            / 100
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">{comfort.copy}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function computeRoomComfort(reading: SensorReading | null): {
-  score: number | string;
-  copy: string;
-} {
-  if (
-    !reading ||
-    typeof reading.indoor_temp !== "number" ||
-    typeof reading.humidity !== "number"
-  ) {
-    return { score: "--", copy: "Awaiting data" };
-  }
-
-  // Comfort blends temperature + humidity, weighted toward temperature.
-  // Ideal anchor: 24 °C / 50 %rh.
-  const tScore = Math.max(0, 100 - Math.abs(reading.indoor_temp - 24) * 8);
-  const hScore = Math.max(0, 100 - Math.abs(reading.humidity - 50) * 2);
-  const score = Math.round(tScore * 0.6 + hScore * 0.4);
-
-  let copy = "Comfortable";
-  if (score < 50) copy = "Uncomfortable";
-  else if (score < 75) copy = "Slightly off";
-  else if (score > 90) copy = "Ideal";
-
-  return { score, copy };
 }

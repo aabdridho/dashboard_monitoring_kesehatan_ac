@@ -190,15 +190,6 @@ function WindowedCharts() {
           windowMs={windowMs}
         />
         <ChartCard
-          title="Current"
-          description="Load current (A)"
-          tone="primary"
-          yFormatter={(v) => v.toFixed(2)}
-          yDomain={[0, 8]}
-          keyName="current"
-          windowMs={windowMs}
-        />
-        <ChartCard
           title="Power"
           description="Instantaneous power (W)"
           tone="accent"
@@ -206,7 +197,15 @@ function WindowedCharts() {
           yDomain={[0, 1500]}
           keyName="power"
           windowMs={windowMs}
-          className="lg:col-span-2"
+        />
+        <ChartCard
+          title="Current"
+          description="Load current (A)"
+          tone="primary"
+          yFormatter={(v) => v.toFixed(2)}
+          yDomain={[0, 8]}
+          keyName="current"
+          windowMs={windowMs}
         />
       </div>
     </div>

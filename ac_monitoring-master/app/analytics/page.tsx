@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRealtimeSensorData } from "@/hooks/use-realtime-sensor-data";
+import { useFirebaseHistory } from "@/hooks/use-firebase-history";
 import type { DeviceStatus } from "@/types/sensor";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -18,29 +18,22 @@ interface HistoryEntry {
 }
 
 export default function AnalyticsPage() {
-  const { reading } = useRealtimeSensorData();
-  const [history, setHistory] = React.useState<HistoryEntry[]>([]);
-
-  React.useEffect(() => {
-    if (!reading) return;
-
-    setHistory((prev) => {
-      const now = Date.now();
-      const thirtyDaysAgo = now - THIRTY_DAYS_MS;
-
-      const filtered = prev.filter((h) => h.timestamp > thirtyDaysAgo);
-      const newEntry: HistoryEntry = {
-        timestamp: now,
-        indoor_temp: reading.indoor_temp,
-        outdoor_temp: reading.outdoor_temp,
-        power: reading.power,
-        energy: reading.energy,
-        status: reading.status ?? "healthy",
-      };
-
-      return [...filtered, newEntry];
-    });
-  }, [reading]);
+  const { history: rawHistory } = useFirebaseHistory(5000); // larger limit for 30 days
+  
+  const history = React.useMemo(() => {
+    const now = Date.now();
+    const thirtyDaysAgo = now - THIRTY_DAYS_MS;
+    return rawHistory
+      .filter((h) => (h.timestamp ?? 0) > thirtyDaysAgo)
+      .map((h) => ({
+        timestamp: h.timestamp ?? 0,
+        indoor_temp: h.indoor_temp,
+        outdoor_temp: h.outdoor_temp,
+        power: h.power,
+        energy: h.energy,
+        status: h.status ?? "healthy",
+      }));
+  }, [rawHistory]);
 
   const calculateAverage = (getter: (h: HistoryEntry) => number) => {
     if (history.length === 0) return 0;
@@ -86,7 +79,7 @@ export default function AnalyticsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{avgIndoorTemp}°C</div>
             <p className="text-xs text-muted-foreground">
-              Average over the last 30 days
+              Rata-rata perhari
             </p>
           </CardContent>
         </Card>
@@ -99,7 +92,7 @@ export default function AnalyticsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{avgOutdoorTemp}°C</div>
             <p className="text-xs text-muted-foreground">
-              Average over the last 30 days
+              Rata-rata perhari
             </p>
           </CardContent>
         </Card>
