@@ -36,9 +36,13 @@ export default function AnalyticsPage() {
   }, [rawHistory]);
 
   const calculateAverage = (getter: (h: HistoryEntry) => number) => {
-    if (history.length === 0) return 0;
-    const sum = history.reduce((acc, h) => acc + getter(h), 0);
-    return parseFloat((sum / history.length).toFixed(1));
+    const validEntries = history.filter((h) => {
+      const val = getter(h);
+      return typeof val === "number" && !isNaN(val) && val > 0;
+    });
+    if (validEntries.length === 0) return 0;
+    const sum = validEntries.reduce((acc, h) => acc + getter(h), 0);
+    return parseFloat((sum / validEntries.length).toFixed(1));
   };
 
   const calculateHealthStatus = () => {

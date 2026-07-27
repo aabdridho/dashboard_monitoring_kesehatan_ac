@@ -50,10 +50,10 @@ function fuzzifyDisparitasSuhu(disparity: number): {
   const dispClamped = Math.max(0, Math.min(8, disparity));
 
   return {
-    // Normal: Mendekati 0°C (segitiga: 0, 0, 2)
-    normal: triangularMF(dispClamped, 0, 0, 2),
-    // Tinggi: Selisih besar (trapesium: 1.5, 3, 6, 8)
-    tinggi: trapezoidalMF(dispClamped, 1.5, 3, 6, 8),
+    // Normal: Mendekati 0-4°C (segitiga: 0, 0, 4)
+    normal: triangularMF(dispClamped, 0, 0, 4),
+    // Tinggi: Selisih besar (trapesium: 3, 4.5, 6, 8)
+    tinggi: trapezoidalMF(dispClamped, 3, 4.5, 6, 8),
   };
 }
 

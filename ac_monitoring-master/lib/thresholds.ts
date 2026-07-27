@@ -39,9 +39,9 @@ export const THRESHOLDS: Record<SensorMetric, ThresholdBand> = {
   // Supply (evaporator) temperature.
   supply_temp: {
     warningLower: 10,
-    warningUpper: 25,
+    warningUpper: 28,
     criticalLower: 5,
-    criticalUpper: 30,
+    criticalUpper: 32,
   },
   // Setpoint — no thresholds by default.
   setpoint: {},

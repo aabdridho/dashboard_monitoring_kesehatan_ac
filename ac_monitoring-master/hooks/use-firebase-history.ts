@@ -3,6 +3,7 @@
 import * as React from "react";
 import { query, ref, orderByKey, limitToLast, onValue } from "firebase/database";
 import { getFirebaseDatabase, isFirebaseConfigured, FIREBASE_PATHS } from "@/services/firebase";
+import { deriveACStatusFromSensors } from "@/lib/fuzzy";
 import type { SensorReading } from "@/types/sensor";
 
 function parseTimestamp(ts: any): number {
@@ -113,6 +114,10 @@ export function useFirebaseHistory(limit: number = 1000) {
             power_factor: point.power_factor ?? 1,
           });
         }
+      });
+
+      merged.forEach((item) => {
+        item.status = deriveACStatusFromSensors(item);
       });
 
       setHistory(merged);
