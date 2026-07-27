@@ -1,7 +1,8 @@
-
 "use client";
 
 import * as React from "react";
+import { motion } from "framer-motion";
+import { Activity, Flame, HeartPulse, Power, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFirebaseHistory } from "@/hooks/use-firebase-history";
 import type { DeviceStatus } from "@/types/sensor";
@@ -18,8 +19,8 @@ interface HistoryEntry {
 }
 
 export default function AnalyticsPage() {
-  const { history: rawHistory } = useFirebaseHistory(5000); // larger limit for 30 days
-  
+  const { history: rawHistory } = useFirebaseHistory(5000);
+
   const history = React.useMemo(() => {
     const now = Date.now();
     const thirtyDaysAgo = now - THIRTY_DAYS_MS;
@@ -61,8 +62,39 @@ export default function AnalyticsPage() {
   const avgIndoorTemp = calculateAverage((h) => h.indoor_temp);
   const avgOutdoorTemp = calculateAverage((h) => h.outdoor_temp);
   const avgPower = calculateAverage((h) => h.power);
-  const totalEnergy = calculateAverage((h) => h.energy);
+  const avgEnergy = calculateAverage((h) => h.energy);
   const healthStatus = calculateHealthStatus();
+
+  const cards = [
+    {
+      title: "Avg. Indoor Temp",
+      value: `${avgIndoorTemp}°C`,
+      caption: "Rata-rata perhari",
+      icon: Flame,
+      color: "text-amber-500",
+    },
+    {
+      title: "Avg. Outdoor Temp",
+      value: `${avgOutdoorTemp}°C`,
+      caption: "Rata-rata perhari",
+      icon: Flame,
+      color: "text-orange-500",
+    },
+    {
+      title: "Avg. Power",
+      value: `${avgPower} W`,
+      caption: "Rata-rata perhari",
+      icon: Power,
+      color: "text-blue-500",
+    },
+    {
+      title: "Avg. Energy",
+      value: `${avgEnergy} kWh`,
+      caption: "Rata-rata perhari",
+      icon: Zap,
+      color: "text-emerald-500",
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -74,72 +106,93 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Indoor Temp
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgIndoorTemp}°C</div>
-            <p className="text-xs text-muted-foreground">
-              Rata-rata perhari
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Outdoor Temp
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgOutdoorTemp}°C</div>
-            <p className="text-xs text-muted-foreground">
-              Rata-rata perhari
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Power</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgPower} W</div>
-            <p className="text-xs text-muted-foreground">
-              Average consumption rate
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Energy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalEnergy} kWh</div>
-            <p className="text-xs text-muted-foreground">
-              Consumed in the last 30 days
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Health Status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="text-lg font-semibold text-green-600">
-              {healthStatus.healthy}% Healthy
-            </div>
-            <div className="text-lg font-semibold text-yellow-600">
-              {healthStatus.warning}% Warning
-            </div>
-            {healthStatus.critical > 0 && (
-              <div className="text-lg font-semibold text-red-600">
-                {healthStatus.critical}% Critical
+        {cards.map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <motion.div
+              key={item.title}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
+            >
+              <Card className="relative overflow-hidden ring-1 ring-inset ring-border/60 transition-all hover:shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {item.title}
+                  </CardTitle>
+                  <span className="rounded-md bg-muted/60 p-1.5 text-muted-foreground">
+                    <Icon className={`h-4 w-4 ${item.color}`} />
+                  </span>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold tracking-tight">{item.value}</div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.caption}
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: cards.length * 0.05 }}
+        >
+          <Card className="relative overflow-hidden ring-1 ring-inset ring-border/60 transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Health Status
+              </CardTitle>
+              <span className="rounded-md bg-muted/60 p-1.5 text-muted-foreground">
+                <HeartPulse className="h-4 w-4 text-emerald-500" />
+              </span>
+            </CardHeader>
+            <CardContent className="space-y-2.5">
+              <div>
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-emerald-500">Healthy</span>
+                  <span>{healthStatus.healthy}%</span>
+                </div>
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${healthStatus.healthy}%` }}
+                  />
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              <div>
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-amber-500">Warning</span>
+                  <span>{healthStatus.warning}%</span>
+                </div>
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-amber-500 transition-all duration-500"
+                    style={{ width: `${healthStatus.warning}%` }}
+                  />
+                </div>
+              </div>
+
+              {healthStatus.critical > 0 && (
+                <div>
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-rose-500">Critical</span>
+                    <span>{healthStatus.critical}%</span>
+                  </div>
+                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-rose-500 transition-all duration-500"
+                      style={{ width: `${healthStatus.critical}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );
