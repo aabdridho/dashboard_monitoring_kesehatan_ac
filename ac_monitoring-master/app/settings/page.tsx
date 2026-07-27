@@ -43,6 +43,7 @@ export default function SettingsPage() {
 
   React.useEffect(() => {
     window.localStorage.setItem(TEST_MODE_STORAGE_KEY, testMode);
+    window.dispatchEvent(new Event("storage"));
 
     // Dynamic import untuk test service
     (async () => {

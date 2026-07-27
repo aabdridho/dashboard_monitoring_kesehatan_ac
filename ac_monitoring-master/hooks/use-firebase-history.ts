@@ -17,8 +17,27 @@ function parseTimestamp(ts: any): number {
 }
 
 export function useFirebaseHistory(limit: number = 1000) {
-  const [history, setHistory] = React.useState<SensorReading[]>([]);
+  const [rawHistory, setRawHistory] = React.useState<SensorReading[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [testMode, setTestMode] = React.useState<string>(() => {
+    if (typeof window === "undefined") return "none";
+    return window.localStorage.getItem("ac-monitoring-test-mode") || "none";
+  });
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      const currentMode = window.localStorage.getItem("ac-monitoring-test-mode") || "none";
+      setTestMode(currentMode);
+    };
+
+    window.addEventListener("storage", handleStorage);
+    const interval = setInterval(handleStorage, 500);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!isFirebaseConfigured()) {
@@ -120,7 +139,7 @@ export function useFirebaseHistory(limit: number = 1000) {
         item.status = deriveACStatusFromSensors(item);
       });
 
-      setHistory(merged);
+      setRawHistory(merged);
       setLoading(false);
     };
 
@@ -151,6 +170,37 @@ export function useFirebaseHistory(limit: number = 1000) {
       unsubKWH();
     };
   }, [limit]);
+
+  const history = React.useMemo(() => {
+    if (testMode === "none") {
+      return rawHistory;
+    }
+
+    return rawHistory.map((item, idx) => {
+      let cond = testMode;
+      if (testMode === "mixed") {
+        cond = idx % 2 === 0 ? "healthy" : "warning";
+      }
+
+      const tested: SensorReading = { ...item };
+      if (cond === "healthy") {
+        tested.setpoint = 20;
+        tested.supply_temp = 21;
+        tested.indoor_temp = 25;
+        tested.outdoor_temp = 30;
+        tested.power = 1200;
+        tested.status = "healthy";
+      } else if (cond === "warning") {
+        tested.setpoint = 20;
+        tested.supply_temp = 27;
+        tested.indoor_temp = 31;
+        tested.outdoor_temp = 30;
+        tested.power = 2500;
+        tested.status = "warning";
+      }
+      return tested;
+    });
+  }, [rawHistory, testMode]);
 
   return { history, loading };
 }
