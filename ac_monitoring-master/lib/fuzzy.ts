@@ -132,10 +132,22 @@ function evaluateMamdaniRules(
   const rule3 =
     Math.min(disparityMF.tinggi, deltaMF.tetapNaik, powerMF.tidakNormal);
 
+  // RULE 4: IF (disparitas Normal) AND (delta TetapNaik) AND (power Normal) THEN healthy
+  const rule4 = 
+    Math.min(disparityMF.normal, deltaMF.tetapNaik, powerMF.normal);
+    
+  // RULE 5: IF (disparitas Normal) AND (delta Turun) AND (power TidakNormal) THEN warning
+  const rule5 = 
+    Math.min(disparityMF.normal, deltaMF.turun, powerMF.tidakNormal);
+    
+  // RULE 6: IF (disparitas Normal) AND (delta TetapNaik) AND (power TidakNormal) THEN warning
+  const rule6 = 
+    Math.min(disparityMF.normal, deltaMF.tetapNaik, powerMF.tidakNormal);
+
   // Agregasi: MAX untuk setiap output
   return {
-    healthyStrength: rule1,
-    warningStrength: Math.max(rule2, rule3),
+    healthyStrength: Math.max(rule1, rule4),
+    warningStrength: Math.max(rule2, rule3, rule5, rule6),
   };
 }
 

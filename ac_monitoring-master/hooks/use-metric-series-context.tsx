@@ -56,7 +56,7 @@ const EMPTY: MetricSeriesState = {
   energy: [],
 };
 
-const DEFAULT_CAP = 200000;
+const DEFAULT_CAP = 10000;
 
 interface MetricSeriesContextValue extends MetricSeriesState {
   /** Always-stable handle to the push function. Call as `pushRef.current(r)`. */
@@ -93,11 +93,11 @@ export function MetricSeriesProvider({
       if (!mod.isFirebaseConfigured()) return;
       const { getFirebaseDatabase, FIREBASE_PATHS } = mod;
       import("firebase/database").then((dbMod) => {
-        const { get, query, ref, orderByKey } = dbMod;
+        const { get, query, ref, orderByKey, limitToLast } = dbMod;
         const db = getFirebaseDatabase();
         const historyRef = ref(db, FIREBASE_PATHS.history);
         
-        get(query(historyRef, orderByKey())).then((snapshot) => {
+        get(query(historyRef, orderByKey(), limitToLast(5000))).then((snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.val();
             const arr = Object.values(data) as any[];
@@ -118,7 +118,6 @@ export function MetricSeriesProvider({
                 if(r.energy !== undefined) next.energy.push({ t, value: r.energy });
               });
               
-              // Merge with any realtime data that might have already arrived
               return {
                 indoor_temp: mergeAndSort(next.indoor_temp, prev.indoor_temp),
                 outdoor_temp: mergeAndSort(next.outdoor_temp, prev.outdoor_temp),
