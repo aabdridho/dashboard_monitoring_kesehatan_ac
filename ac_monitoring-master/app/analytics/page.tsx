@@ -22,10 +22,13 @@ export default function AnalyticsPage() {
   const { history: rawHistory } = useFirebaseHistory(5000);
 
   const history = React.useMemo(() => {
-    const now = Date.now();
-    const thirtyDaysAgo = now - THIRTY_DAYS_MS;
+    if (!rawHistory || rawHistory.length === 0) return [];
+
+    const latestTimestamp = rawHistory[rawHistory.length - 1]?.timestamp ?? Date.now();
+    const thirtyDaysAgo = latestTimestamp - THIRTY_DAYS_MS;
+
     return rawHistory
-      .filter((h) => (h.timestamp ?? 0) > thirtyDaysAgo)
+      .filter((h) => (h.timestamp ?? 0) >= thirtyDaysAgo)
       .map((h) => ({
         timestamp: h.timestamp ?? 0,
         indoor_temp: h.indoor_temp,
