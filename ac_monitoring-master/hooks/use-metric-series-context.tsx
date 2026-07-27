@@ -71,13 +71,23 @@ export function MetricSeriesProvider({
         initialHistory.forEach((r) => {
           const t = r.timestamp;
           if (!t) return;
-          if (r.indoor_temp !== undefined) next.indoor_temp.push({ t, value: r.indoor_temp });
-          if (r.outdoor_temp !== undefined) next.outdoor_temp.push({ t, value: r.outdoor_temp });
-          if (r.supply_temp !== undefined) next.supply_temp.push({ t, value: r.supply_temp });
-          if (r.voltage !== undefined) next.voltage.push({ t, value: r.voltage });
-          if (r.current !== undefined) next.current.push({ t, value: r.current });
-          if (r.power !== undefined) next.power.push({ t, value: r.power });
-          if (r.energy !== undefined) next.energy.push({ t, value: r.energy });
+          // Only push values that are real sensor readings (> 0).
+          // Zero values come from the Firebase merge defaults when
+          // a node hasn't reported that metric for that timestamp.
+          if (r.indoor_temp !== undefined && r.indoor_temp > 0)
+            next.indoor_temp.push({ t, value: r.indoor_temp });
+          if (r.outdoor_temp !== undefined && r.outdoor_temp > 0)
+            next.outdoor_temp.push({ t, value: r.outdoor_temp });
+          if (r.supply_temp !== undefined && r.supply_temp > 0)
+            next.supply_temp.push({ t, value: r.supply_temp });
+          if (r.voltage !== undefined && r.voltage > 0)
+            next.voltage.push({ t, value: r.voltage });
+          if (r.current !== undefined && r.current >= 0)
+            next.current.push({ t, value: r.current });
+          if (r.power !== undefined && r.power >= 0)
+            next.power.push({ t, value: r.power });
+          if (r.energy !== undefined && r.energy >= 0)
+            next.energy.push({ t, value: r.energy });
         });
 
         return {
@@ -151,15 +161,13 @@ export function useWindowedSeries(
 ): SeriesPoint[] {
   return React.useMemo(() => {
     if (!series || series.length === 0) return [];
-    const valid = series.filter((p) => typeof p.value === "number" && !isNaN(p.value) && p.value > 0);
-    if (valid.length === 0) return [];
-    if (windowMs === "all") return valid;
+    if (windowMs === "all") return series;
 
-    const maxT = valid[valid.length - 1]?.t ?? 0;
+    const maxT = series[series.length - 1]?.t ?? 0;
     const cutoff = maxT - windowMs;
-    const idx = valid.findIndex((p) => p.t >= cutoff);
-    if (idx <= 0) return valid;
-    return valid.slice(idx);
+    const idx = series.findIndex((p) => p.t >= cutoff);
+    if (idx <= 0) return series;
+    return series.slice(idx);
   }, [series, windowMs]);
 }
 
