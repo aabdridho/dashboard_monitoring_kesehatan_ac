@@ -34,40 +34,42 @@ class TestSensorService {
 
     let condition = this.config.condition;
     if (this.config.condition === "mixed") {
-      // Berganti kondisi setiap cycleInterval
       condition = Math.floor(elapsed / cycleInterval) % 2 === 0 ? "healthy" : "warning";
     }
 
     console.log(`[TestSensorService] Generating ${condition} condition data`);
 
-    const setpoint = baseSensorData.setpoint ?? 21;
-    const outdoorTemp = baseSensorData.outdoor_temp ?? 30;
+    const rawSetpoint = baseSensorData.setpoint;
+    const setpoint = (typeof rawSetpoint === "number" && rawSetpoint >= 16 && rawSetpoint <= 30)
+      ? rawSetpoint
+      : 20;
+
+    const rawOutdoor = baseSensorData.outdoor_temp;
+    const outdoorTemp = (typeof rawOutdoor === "number" && rawOutdoor > 0)
+      ? rawOutdoor
+      : 30;
 
     if (condition === "healthy") {
-      // RULE 1: Normal disparity, Turun delta, Normal power
+      // Healthy condition: supply_temp is within 16-30°C (e.g. setpoint + 1°C = 21°C)
+      const supplyTemp = Math.min(30, Math.max(16, setpoint + 1));
       return {
         ...baseSensorData,
-        // Disparity Normal: Mendekati 0°C (0-2°C range)
         setpoint: setpoint,
-        supply_temp: setpoint + 0.5, // Disparity ≈ 0.5°C (Normal)
-        // Delta Turun: Indoor jauh di bawah outdoor
-        indoor_temp: outdoorTemp - 5, // Indoor 5°C lebih rendah (Turun)
+        supply_temp: supplyTemp, // 21°C (Healthy & within 16-30°C)
+        indoor_temp: outdoorTemp - 5, // e.g. 25°C
         outdoor_temp: outdoorTemp,
-        // Power Normal: Konsumsi stabil (200-1800W)
         power: 1200,
         humidity: 45,
       };
     } else if (condition === "warning") {
-      // RULE 2 & 3: Tinggi disparity, TetapNaik delta, Normal/TidakNormal power
+      // Warning condition: supply_temp is within 16-30°C (e.g. setpoint + 7°C = 27°C)
+      const supplyTemp = Math.min(30, Math.max(16, setpoint + 7));
       return {
         ...baseSensorData,
-        // Disparity Tinggi: Selisih besar (3-8°C range)
         setpoint: setpoint,
-        supply_temp: setpoint + 5, // Disparity ≈ 5°C (Tinggi)
-        // Delta TetapNaik: Indoor mendekati/di atas outdoor
-        indoor_temp: outdoorTemp + 1, // Indoor 1°C lebih tinggi (TetapNaik)
+        supply_temp: supplyTemp, // 27°C (Warning & within 16-30°C)
+        indoor_temp: outdoorTemp + 1, // e.g. 31°C
         outdoor_temp: outdoorTemp,
-        // Power TidakNormal: Konsumsi tinggi (2000-3000W)
         power: 2500,
         humidity: 60,
       };
